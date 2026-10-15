@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="おてつだい">
+<meta name="theme-color" content="#ffffff">
+<title>おてつだい ちょきん</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic:wght@700&family=BIZ+UDPGothic:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Yuji+Syuku&text=%E3%83%9E&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#ffffff;     /* 紙 */
+    --ink:#1f2a44;       /* 紺のインク */
+    --sub:#5b6475;
+    --rule:#cfdaeb;      /* ノートの罫線 */
+    --shu:#d23a2e;       /* 朱肉 */
+    --fusen:#ffe76a;     /* 付箋 */
+    --fusen-nori:#f2cf2e;
+    --mist:#eef2f7;
+    --kc:#1f2a44; --kdk:#141c2e;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:"BIZ UDPGothic","Hiragino Sans","Hiragino Kaku Gothic ProN",sans-serif;
+    font-size:16px;line-height:1.6}
+  body{padding-bottom:calc(48px + env(safe-area-inset-bottom))}
+  /* パソコンで開いたときもスマホくらいの幅で真ん中に */
+  @media (min-width:600px){body{max-width:480px;margin:0 auto;min-height:100vh;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}}
+  button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation}
+  input{font:inherit;font-size:16px;color:var(--ink)}
+  :focus-visible{outline:3px solid var(--kc);outline-offset:2px}
+  .kid,.sheet.kid{word-break:keep-all;overflow-wrap:anywhere}
+  .num{font-family:"BIZ UDGothic","BIZ UDPGothic",sans-serif;font-weight:700;font-variant-numeric:tabular-nums}
+
+  /* 試作だけの切り替え（本番では出さない） */
+  .proto{position:sticky;top:0;z-index:20;background:var(--mist);border-bottom:1px solid var(--rule);
+    padding:calc(6px + env(safe-area-inset-top)) 12px 6px;font-size:12px;color:var(--sub)}
+  .proto .row{display:flex;align-items:center;gap:4px}
+  .proto .seg{display:flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden;margin-left:6px}
+  .proto button{white-space:nowrap}
+  @media (max-width:380px){.proto .lbl{display:none}}
+  .proto .seg button{color:var(--ink);padding:5px 10px;font-weight:700;font-size:13px;background:#fff}
+  .proto .seg button+button{border-left:1.5px solid var(--ink)}
+  .proto .seg button.on{background:var(--ink);color:#fff}
+  .proto #reset{margin-left:auto;font-size:12px;color:var(--sub);text-decoration:underline;padding:6px 2px}
+
+  /* ===== 子ども：通帳の表紙（いまのちょきん） ===== */
+  .cover{background:var(--kc);color:#fff;padding:18px 20px 20px}
+  .cover .who{font-size:15px;font-weight:700;opacity:.92}
+  .cover .amt{font-size:56px;line-height:1.05;margin:2px 0 14px;letter-spacing:-.01em}
+  .cover .amt small{font-size:24px;margin-left:4px;font-family:"BIZ UDPGothic",sans-serif}
+  .cover .wait{font-size:14px;margin:-8px 0 12px;opacity:.92}
+  .wbtn{display:block;width:100%;padding:13px;border-radius:10px;background:#fff;color:var(--kc);font-weight:700;font-size:17px;
+    border-bottom:4px solid rgba(0,0,0,.28)}
+  .wbtn:active{transform:translateY(3px);border-bottom-width:1px}
+  .wbtn:disabled{opacity:.7;transform:none;border-bottom-width:4px}
+
+  .blk{padding:22px 20px 0}
+  h2{font-size:17px;margin:0 0 4px;font-weight:700}
+  .note{margin:0 0 10px;font-size:14px;color:var(--sub)}
+
+  /* ママからのおねがい＝付箋 */
+  .fusen{position:relative;background:var(--fusen);border-top:10px solid var(--fusen-nori);padding:12px 14px 14px;margin:0 0 10px;
+    display:flex;align-items:center;gap:12px}
+  .fusen .tx{flex:1;min-width:0}
+  .fusen .to{font-size:13px;font-weight:700}
+  .fusen .nm{font-size:19px;font-weight:700;line-height:1.35}
+  .fusen .yen{font-size:15px}
+  .go{flex:none;min-width:92px;padding:12px 12px;border-radius:10px;background:var(--ink);color:#fff;font-weight:700;font-size:16px;border-bottom:4px solid #000}
+  .go:active{transform:translateY(3px);border-bottom-width:1px}
+
+  /* おてつだい一覧（罫線で区切る） */
+  .list{border-top:1.5px solid var(--rule)}
+  .chore{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 0;min-height:62px;border-bottom:1.5px solid var(--rule)}
+  .chore .nm{flex:1;font-size:18px;font-weight:700;line-height:1.35}
+  .chore .yen{flex:none;font-size:18px}
+  .chore .yen small{font-size:13px;font-family:"BIZ UDPGothic",sans-serif;margin-left:1px}
+  .chore .btn{flex:none;padding:8px 12px;border-radius:8px;border:2px solid var(--kc);color:var(--kc);font-weight:700;font-size:15px;border-bottom-width:4px}
+  .chore:active .btn{transform:translateY(2px);border-bottom-width:2px}
+
+  /* OKまち */
+  .wrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1.5px solid var(--rule)}
+  .wrow .tx{flex:1;min-width:0}
+  .wrow .nm{font-weight:700;font-size:16px}
+  .wrow .sub{display:block;font-size:13px;color:var(--sub)}
+  .wrow .yen{flex:none}
+  .wrow.redo .sub{color:var(--shu);font-weight:700}
+  .link{flex:none;font-size:14px;color:var(--sub);text-decoration:underline;padding:8px 2px}
+  .again{flex:none;padding:9px 10px;border-radius:8px;background:var(--shu);color:#fff;font-weight:700;font-size:14px;border-bottom:3px solid #8f2119}
+
+  /* 通帳（おかねの きろく） */
+  .book{border:1.5px solid var(--ink);border-radius:4px;overflow:hidden}
+  .bk{display:grid;grid-template-columns:50px minmax(0,1fr) 58px 58px 34px;align-items:stretch;border-top:1px solid var(--rule)}
+  .bk>*{padding:9px 4px;min-height:44px;display:flex;align-items:center}
+  .bk>*+*{border-left:1px solid var(--rule)}
+  .bk .d{font-size:12px;justify-content:center;color:var(--sub)}
+  .bk .w{font-size:14px;line-height:1.4;flex-direction:column;justify-content:center;align-items:flex-start;padding-left:8px}
+  .bk .w .tip{display:block;font-size:12px;color:var(--sub)}
+  .bk .m,.bk .z{justify-content:flex-end;font-size:15px;padding-right:6px}
+  .bk .m.minus{color:var(--shu)}
+  .bk .s{justify-content:center;padding:4px 0}
+  .bk.head{background:var(--mist);border-top:0}
+  .bk.head>*{min-height:30px;padding:4px;font-size:12px;color:var(--sub);font-weight:700;justify-content:center}
+  .bk.off .w,.bk.off .m{color:var(--sub)}
+  .bk.last .z{background:#fff8c9}
+
+  /* ママのハンコ */
+  .hanko{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:2px solid var(--shu);border-radius:50%;
+    color:var(--shu);font-family:"Yuji Syuku","Hiragino Mincho ProN",serif;font-size:11px;line-height:1;writing-mode:vertical-rl;
+    letter-spacing:-1px;transform:rotate(-12deg);opacity:.88}
+
+  /* ===== ママの画面 ===== */
+  .mhead{display:flex;align-items:baseline;gap:10px;padding:18px 20px 12px;border-bottom:1.5px solid var(--ink)}
+  .mhead h1{flex:1;margin:0;font-size:21px}
+  .mhead .cnt{font-size:16px;font-weight:700}
+  .zan{border:1.5px solid var(--ink);border-radius:4px}
+  .zr{display:flex;align-items:center;padding:10px 14px;border-top:1px solid var(--rule)}
+  .zr:first-child{border-top:0}
+  .zr .kn{flex:1;font-weight:700;font-size:16px;color:var(--kc);display:flex;align-items:center;gap:8px}
+  .zr .kn::before{content:"";width:12px;height:12px;border-radius:2px;background:var(--kc)}
+  .zr .num{font-size:22px}
+  .zr .num small{font-size:14px;font-family:"BIZ UDPGothic",sans-serif;margin-left:2px}
+
+  .pend{position:relative;padding:14px 0 14px 14px;border-bottom:1.5px solid var(--rule);border-left:6px solid var(--kc);padding-left:12px;margin-left:-2px}
+  .pend:first-of-type{border-top:1.5px solid var(--rule)}
+  .pend .ph{display:flex;align-items:baseline;gap:8px;font-size:14px}
+  .pend .ph b{color:var(--kc);font-size:15px}
+  .pend .ph .when{margin-left:auto;color:var(--sub);font-size:13px}
+  .pend .pw{font-size:19px;font-weight:700;margin:2px 0 10px;line-height:1.4}
+  .pend .pw .num{margin-left:6px}
+  .pend .from{display:inline-block;font-size:12px;font-weight:700;background:var(--fusen);border-top:3px solid var(--fusen-nori);padding:0 6px;margin-left:6px;vertical-align:3px}
+  .pend .calc{font-size:14px;color:var(--sub);margin:-6px 0 10px}
+  .tiprow{display:flex;align-items:center;gap:8px;margin:0 0 12px;font-size:15px;font-weight:700}
+  .tiprow input{width:100px;padding:9px 10px;border:1.5px solid var(--sub);border-radius:8px;text-align:right;font-weight:700}
+  .tiprow small{font-weight:400;color:var(--sub);font-size:13px}
+  .pb{display:flex;gap:8px}
+  .pb button{padding:12px 10px;border-radius:10px;font-weight:700;font-size:16px}
+  .pb .no{flex:none;width:32%;border:2px solid var(--rule);color:var(--sub);background:#fff}
+  .pb .ok{flex:1;background:var(--ink);color:#fff;border-bottom:4px solid #000}
+  .pb .ok:active{transform:translateY(3px);border-bottom-width:1px}
+  .pb .ok:disabled{background:#aab3c2;border-bottom-color:#8e97a6;transform:none}
+  .pend .hanko.big{position:absolute;right:12px;top:34px;width:76px;height:76px;font-size:28px;border-width:3px;letter-spacing:-3px;pointer-events:none}
+  .pend.stamped .pb{opacity:.35}
+  @keyframes oshite{0%{transform:scale(1.8) rotate(-12deg);opacity:0}60%{transform:scale(.92) rotate(-12deg);opacity:.95}100%{transform:scale(1) rotate(-12deg);opacity:.88}}
+  .pend .hanko.big{animation:oshite .32s ease-out both}
+  @media (prefers-reduced-motion:reduce){.pend .hanko.big{animation:none}}
+
+  .ask{display:block;width:100%;padding:13px;border:2px solid var(--ink);border-bottom-width:4px;border-radius:10px;background:#fff;font-weight:700;font-size:17px;margin:0 0 12px}
+  .ask:active{transform:translateY(2px);border-bottom-width:2px}
+  .ktag{display:inline-block;font-size:12px;font-weight:700;color:#fff;background:var(--kc);border-radius:4px;padding:0 6px;margin-right:6px;vertical-align:1px}
+  .none{padding:14px 0;color:var(--sub);font-size:15px;border-top:1.5px solid var(--rule);border-bottom:1.5px solid var(--rule)}
+
+  details{border-top:1.5px solid var(--ink);margin:26px 20px 0}
+  details+details{margin-top:0}
+  details:last-of-type{border-bottom:1.5px solid var(--ink)}
+  details summary{padding:15px 0;font-weight:700;font-size:16px;cursor:pointer;list-style:none;display:flex;align-items:center}
+  details summary::-webkit-details-marker{display:none}
+  details summary::after{content:"ひらく";margin-left:auto;font-size:13px;color:var(--sub);font-weight:400}
+  details[open] summary::after{content:"とじる"}
+  details .in{padding:0 0 16px}
+  .erow{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+  .erow input{min-width:0;padding:10px;border:1.5px solid var(--rule);border-radius:8px;background:#fff}
+  .erow .en{flex:1}
+  .erow .ey{width:76px;text-align:right}
+  .erow .yl{font-size:14px;color:var(--sub)}
+  .xbtn{flex:none;font-size:14px;color:var(--shu);text-decoration:underline;padding:8px 4px}
+  .addbtn{width:100%;padding:11px;border:1.5px dashed var(--sub);border-radius:8px;color:var(--ink);font-weight:700}
+  .hrow{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--rule);font-size:15px}
+  .hrow .tx{flex:1;min-width:0}
+  .hrow .sub{display:block;font-size:12px;color:var(--sub)}
+  .hrow .m.minus{color:var(--shu)}
+  .hrow .off{color:var(--sub);font-size:13px}
+  /* 付箋：やったよ＋とりけす */
+  .fusen .ut{display:inline-flex;align-items:center;min-height:44px;margin-top:2px;padding:0 2px;font-size:14px;color:var(--ink);text-decoration:underline}
+  /* 子どもの名前 */
+  .nrow{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .nrow .sw{flex:none;width:14px;height:14px;border-radius:3px;background:var(--kc)}
+  .nrow input{flex:1;min-width:0;padding:10px;border:1.5px solid var(--rule);border-radius:8px;background:#fff;font-weight:700}
+  /* 月ごとの集計 */
+  .mnav{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+  .mnav b{flex:1;text-align:center;font-size:18px}
+  .mnav button{flex:none;padding:8px 12px;border:2px solid var(--ink);border-bottom-width:4px;border-radius:8px;font-weight:700;font-size:14px;background:#fff}
+  .mnav button:disabled{border-color:var(--rule);color:#aab3c2}
+  .sum{border:1.5px solid var(--ink);border-radius:4px;overflow:hidden}
+  .sr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;border-top:1px solid var(--rule)}
+  .sr:first-child{border-top:0}
+  .sr>*{padding:8px;min-height:44px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end}
+  .sr>*+*{border-left:1px solid var(--rule)}
+  .sr>.kn+*{border-left:0}
+  .sr .kn{grid-column:1/-1;min-height:0;padding:10px 8px 0;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;font-weight:700;color:var(--kc);overflow-wrap:anywhere}
+  .sr .kn::before{content:"";flex:none;width:12px;height:12px;border-radius:2px;background:var(--kc)}
+  .sr .num{font-size:16px;white-space:nowrap}
+  .sr small{font-size:11px;color:var(--sub);font-weight:400;font-family:"BIZ UDPGothic",sans-serif;text-align:right}
+  .sr.head{background:var(--mist)}
+  .sr.head>*{min-height:32px;padding:4px 6px;font-size:12px;color:var(--sub);font-weight:700;align-items:center}
+  .sr .minus{color:var(--shu)}
+
+  /* 下から出る画面 */
+  .sbg{position:fixed;inset:0;background:rgba(31,42,68,.5);z-index:30;display:none;align-items:flex-end;justify-content:center}
+  .sbg.show{display:flex}
+  .sheet{width:100%;max-width:520px;max-height:88vh;overflow:auto;background:var(--paper);border-radius:16px 16px 0 0;padding:22px 20px calc(20px + env(safe-area-inset-bottom))}
+  .sheet h3{margin:0 0 2px;font-size:21px;line-height:1.35}
+  .sheet .lead{margin:0 0 16px;color:var(--sub);font-size:15px}
+  .sheet .lead b{color:var(--ink)}
+  .sbtn{display:block;width:100%;padding:15px;border-radius:10px;font-weight:700;font-size:17px;margin-top:10px}
+  .sbtn.main{background:var(--ink);color:#fff;border-bottom:4px solid #000}
+  .sbtn.main:disabled{background:#aab3c2;border-bottom-color:#8e97a6}
+  .sbtn.sub{border:2px solid var(--rule);color:var(--sub)}
+  .pick{border-top:1.5px solid var(--rule);margin-bottom:18px}
+  .pick button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:12px 4px;border-bottom:1.5px solid var(--rule);font-size:16px}
+  .pick button .y{margin-left:auto}
+  .pick button .dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--sub);flex:none}
+  .pick button.on{background:#fffbe0}
+  .pick button.on .dot{border:7px solid var(--ink)}
+  .pick button small{display:block;font-size:13px;color:var(--sub)}
+  .sl{display:block;font-size:15px;font-weight:700;margin:0 0 6px}
+  .amtrow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .amtrow input{flex:1;min-width:0;padding:12px 14px;border:2px solid var(--ink);border-radius:10px;font-size:28px;font-weight:700;text-align:right;
+    font-family:"BIZ UDGothic",sans-serif}
+  .amtrow span{font-size:20px;font-weight:700}
+  .amtrow button{flex:none;padding:14px 12px;border-radius:10px;border:2px solid var(--rule);font-weight:700}
+  .err{color:var(--shu);font-size:15px;font-weight:700;min-height:24px;margin:0}
+
+  .toast{word-break:keep-all;overflow-wrap:anywhere;position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);
+    background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-weight:700;font-size:15px;opacity:0;pointer-events:none;
+    transition:opacity .18s,transform .18s;z-index:40;width:max-content;max-width:calc(100% - 32px);text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%)}
+
+  /* 合言葉なし・読み込み中 */
+  .nokey{padding:48px 24px;text-align:center;word-break:keep-all;overflow-wrap:anywhere}
+  .nokey h1{font-size:22px;margin:0 0 16px}
+  .nokey p{font-size:17px;margin:0 0 14px}
+  .nokey .note{font-size:14px;color:var(--sub)}
+  .nokey a{color:var(--ink);font-weight:700}
+  /* スマホで開くURL */
+  .urow{border-top:1.5px solid var(--rule);padding:14px 0}
+  .urow b{display:block;font-size:16px;color:var(--kc);margin-bottom:8px}
+  .qr{width:180px;max-width:60%;margin:0 0 10px;font-size:13px;color:var(--sub)}
+  .qr svg{display:block;width:100%;height:auto}
+  .qrbtn{display:block;margin:0 0 10px;padding:9px 14px;border:2px solid var(--ink);border-bottom-width:4px;border-radius:8px;font-weight:700;background:#fff}
+  .urow .note{margin:-4px 0 8px}
+  .ucopy{display:flex;gap:8px}
+  .ucopy input{flex:1;min-width:0;padding:9px 10px;border:1.5px solid var(--rule);border-radius:8px;background:var(--mist);font-size:16px;color:var(--sub)}
+  .ucopy button{flex:none;padding:0 14px;border:2px solid var(--ink);border-bottom-width:4px;border-radius:8px;font-weight:700;background:#fff}
+</style>
+</head>
+<body>
+<div class="proto" id="proto" hidden>
+  <div class="row">
+    <span class="lbl">試作：画面きりかえ</span>
+    <div class="seg" id="seg"><button type="button" data-v="k1">上の子</button><button type="button" data-v="k2">下の子</button><button type="button" data-v="mama">ママ</button></div>
+    <button type="button" id="reset">最初に戻す</button>
+  </div>
+</div>
+<div id="app"></div>
+<div class="sbg" id="sbg"><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ==== CORE:START（src/core.js を build.py が書き写す。ここは直接直さない） ==== */
+/* おてつだい ちょきん：きまり（ルール）
+ * アプリ（試作のダミー）と GAS（本番）の両方で、この同じファイルを使う。
+ * build.py が index.html と gas/Code.gs に書き写すので、直すのはここだけ。
+ * GAS でも動くように、?? や ?. は使わない。
+ *
+ * st（全部のデータ）の形
+ *   names:    {k1:'上の子', k2:'下の子'}
+ *   chores:   [{id, name, yen, deleted}]
+ *   records:  [{id, kid, type:'chore'|'withdraw', name, yen, tip, status, at, doneAt, qid, req}]
+ *             status: pending（OK待ち）/ approved（OK・渡した）/ redo（やり直し）/ rejected（引き出しをやめた）/ cancelled（子どもが取り消した）
+ *   requests: [{id, name, yen, mode:'shimei'|'hayai', to, status, at}]
+ *             status: open / taken（早い者勝ちで「やる！」が押された）/ submitted（やったよ）/ done / cancelled
+ * 書きかえた物には _dirty、新しく足した物には _new の印をつける（GAS はこの印を見てシートに書く）
+ */
+var CORE = (function () {
+  var MAX_YEN = 100000;          // 1回の金額・チップ・引き出しの上限
+  var NAME_MAX = 10;             // 子どもの呼び名
+  var CHORE_MAX = 20;            // お手伝いの名前
+  var KIDS = ['k1', 'k2'];
+
+  // 全角の数字も読む。数字以外がまざっていたら bad
+  function toInt(v) {
+    var t = String(v == null ? '' : v).trim()
+      .replace(/[０-９]/g, function (c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); })
+      .replace(/[,，円]/g, '');
+    if (t === '') return { n: 0, empty: true };
+    if (!/^[0-9]+$/.test(t)) return { n: 0, bad: true };
+    return { n: parseInt(t, 10) };
+  }
+  // 文字の掃除：制御文字を消して前後の空白を取り、max 文字で切る
+  function cleanText(s, max) {
+    var t = String(s == null ? '' : s).replace(/[\u0000-\u001f\u007f]/g, '').trim().replace(/^'+/, '').trim();   // 先頭の ' はシートが消すので最初から取る
+    return Array.from(t).slice(0, max).join('');
+  }
+  function balance(st, kid) {
+    return st.records.filter(function (r) { return r.kid === kid && r.status === 'approved'; })
+      .reduce(function (s, r) { return s + (r.type === 'withdraw' ? -r.yen : r.yen + (r.tip || 0)); }, 0);
+  }
+  function waitingWithdraw(st, kid) {
+    return st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'pending'; })
+      .reduce(function (s, r) { return s + r.yen; }, 0);
+  }
+  function fail(code, extra) {
+    var e = new Error(code);
+    e.code = code;
+    e.extra = extra || null;
+    throw e;
+  }
+
+  // 1つの操作をする。だめなら fail(理由) で止める（データはそのまま）
+  function apply(st, role, a, p, now, newId) {
+    p = p || {};
+    var isKid = KIDS.indexOf(role) >= 0;
+    var isMama = role === 'mama';
+    function kidOnly() { if (!isKid) fail('perm'); }
+    function mamaOnly() { if (!isMama) fail('perm'); }
+    function rec(id) { return st.records.filter(function (r) { return r.id === String(id); })[0]; }
+    function req(id) { return st.requests.filter(function (q) { return q.id === String(id); })[0]; }
+    function chore(id) { return st.chores.filter(function (c) { return c.id === String(id) && !c.deleted; })[0]; }
+    function touch(o) { o._dirty = true; return o; }
+    function add(list, o) { o._new = true; list.push(o); return o; }
+    var r, q, c, t;
+
+    switch (a) {
+      case 'load':
+        return {};
+
+      /* ----- 子ども ----- */
+      case 'done':          // お手伝い一覧から「やったよ」
+        kidOnly();
+        c = chore(p.cid); if (!c) fail('gone');
+        add(st.records, { id: newId(), kid: role, type: 'chore', name: c.name, yen: c.yen, tip: 0, status: 'pending', at: now, doneAt: null, qid: '', req: false });
+        return {};
+      case 'withdraw':      // 引き出したい
+        kidOnly();
+        t = toInt(p.yen);
+        if (t.bad || t.empty || t.n <= 0 || t.n > MAX_YEN) fail('input');
+        var can = balance(st, role) - waitingWithdraw(st, role);
+        if (t.n > can) fail('balance', { can: can });
+        add(st.records, { id: newId(), kid: role, type: 'withdraw', name: '', yen: t.n, tip: 0, status: 'pending', at: now, doneAt: null, qid: '', req: false });
+        return {};
+      case 'take':          // 早い者勝ちの「やる！」
+        kidOnly();
+        q = req(p.qid);
+        if (!q || q.mode !== 'hayai' || q.status === 'cancelled' || q.status === 'done') fail('gone');
+        if (q.status !== 'open') fail(q.to === role ? 'gone' : 'taken');
+        q.status = 'taken'; q.to = role; touch(q);
+        return {};
+      case 'untake':        // 「やる！」の取り消し → 2人に出した状態に戻す
+        kidOnly();
+        q = req(p.qid);
+        if (!q || q.status !== 'taken' || q.to !== role) fail('gone');
+        q.status = 'open'; q.to = ''; touch(q);
+        return {};
+      case 'reqdone':       // 付箋の「やったよ」
+        kidOnly();
+        q = req(p.qid);
+        var mine = q && ((q.status === 'open' && q.mode === 'shimei' && q.to === role) || (q.status === 'taken' && q.to === role));
+        if (!mine) fail(q && q.status === 'taken' ? 'taken' : 'gone');
+        q.status = 'submitted'; q.to = role; touch(q);
+        add(st.records, { id: newId(), kid: role, type: 'chore', name: q.name, yen: q.yen, tip: 0, status: 'pending', at: now, doneAt: null, qid: q.id, req: true });
+        return {};
+      case 'again':         // やり直しのあと「もういちど やったよ」
+        kidOnly();
+        r = rec(p.rid);
+        if (!r || r.kid !== role || r.status !== 'redo') fail('gone');
+        r.status = 'pending'; r.at = now; touch(r);
+        return {};
+      case 'cancel':        // OKまちの「とりけす」
+        kidOnly();
+        r = rec(p.rid);
+        if (!r || r.kid !== role || (r.status !== 'pending' && r.status !== 'redo')) fail('gone');
+        r.status = 'cancelled'; touch(r);
+        if (r.qid) {
+          q = req(r.qid);
+          if (q && q.status === 'submitted') { q.status = q.mode === 'hayai' ? 'taken' : 'open'; touch(q); }
+        }
+        return {};
+
+      /* ----- ママ ----- */
+      case 'ok':            // OK（チップつき）
+        mamaOnly();
+        r = rec(p.rid);
+        if (!r || r.type !== 'chore' || r.status !== 'pending') fail('gone');
+        t = toInt(p.tip);
+        if (t.bad || t.n > MAX_YEN) fail('input');
+        r.status = 'approved'; r.tip = t.n; r.doneAt = now; touch(r);
+        if (r.qid) { q = req(r.qid); if (q) { q.status = 'done'; touch(q); } }
+        return {};
+      case 'redo':          // やり直し
+        mamaOnly();
+        r = rec(p.rid);
+        if (!r || r.type !== 'chore' || r.status !== 'pending') fail('gone');
+        r.status = 'redo'; touch(r);
+        return {};
+      case 'wok':           // 引き出し：渡した
+        mamaOnly();
+        r = rec(p.rid);
+        if (!r || r.type !== 'withdraw' || r.status !== 'pending') fail('gone');
+        if (balance(st, r.kid) < r.yen) fail('balance', { can: balance(st, r.kid) });
+        r.status = 'approved'; r.doneAt = now; touch(r);
+        return {};
+      case 'wno':           // 引き出し：やめる
+        mamaOnly();
+        r = rec(p.rid);
+        if (!r || r.type !== 'withdraw' || r.status !== 'pending') fail('gone');
+        r.status = 'rejected'; r.doneAt = now; touch(r);
+        return {};
+      case 'ask':           // お願いを書く
+        mamaOnly();
+        c = chore(p.cid); if (!c) fail('gone');
+        if (p.who !== 'k1' && p.who !== 'k2' && p.who !== 'both') fail('input');
+        add(st.requests, { id: newId(), name: c.name, yen: c.yen, mode: p.who === 'both' ? 'hayai' : 'shimei', to: p.who === 'both' ? '' : p.who, status: 'open', at: now });
+        return {};
+      case 'reqcancel':     // お願いの取り消し
+        mamaOnly();
+        q = req(p.qid);
+        if (!q || (q.status !== 'open' && q.status !== 'taken')) fail('gone');
+        q.status = 'cancelled'; touch(q);
+        return {};
+      case 'chore_add':
+        mamaOnly();
+        var nm = cleanText(p.name, CHORE_MAX) || '新しいお手伝い';
+        t = toInt(p.yen == null ? 10 : p.yen);
+        if (t.bad || t.empty || t.n > MAX_YEN) fail('input');
+        add(st.chores, { id: newId(), name: nm, yen: t.n, deleted: false });
+        return {};
+      case 'chore_edit':
+        mamaOnly();
+        c = chore(p.cid); if (!c) fail('gone');
+        var n2 = c.name, y2 = c.yen;      // 両方確かめてから書きかえる（だめなら何も変えない）
+        if (p.name != null) { n2 = cleanText(p.name, CHORE_MAX); if (!n2) fail('input'); }
+        if (p.yen != null) { t = toInt(p.yen); if (t.bad || t.empty || t.n > MAX_YEN) fail('input'); y2 = t.n; }
+        c.name = n2; c.yen = y2; touch(c);
+        return {};
+      case 'chore_del':     // 消しても過去の記録は残る（印をつけるだけ）
+        mamaOnly();
+        c = chore(p.cid); if (!c) fail('gone');
+        c.deleted = true; touch(c);
+        return {};
+      case 'names':
+        mamaOnly();
+        var k1 = cleanText(p.k1, NAME_MAX), k2 = cleanText(p.k2, NAME_MAX);
+        if (!k1 || !k2) fail('input');
+        if (k1 === k2) fail('same');
+        st.names = { k1: k1, k2: k2 }; st._namesDirty = true;
+        return {};
+    }
+    fail('action');
+  }
+
+  // その人に見せてよい分だけを返す（子どもには自分の記録だけ）
+  function strip(o) { var x = {}; for (var k in o) { if (k.charAt(0) !== '_') x[k] = o[k]; } return x; }
+  function view(st, role) {
+    var isKid = KIDS.indexOf(role) >= 0;
+    var out = { role: role, names: { k1: st.names.k1, k2: st.names.k2 } };
+    out.chores = st.chores.filter(function (c) { return !c.deleted; }).map(strip);
+    if (isKid) {
+      out.records = st.records.filter(function (r) { return r.kid === role && r.status !== 'cancelled'; }).map(strip);
+      out.requests = st.requests.filter(function (q) {
+        return (q.status === 'open' && (q.mode === 'hayai' || q.to === role)) || (q.status === 'taken' && q.to === role);
+      }).map(strip);
+    } else {
+      out.records = st.records.filter(function (r) { return r.status !== 'cancelled'; }).map(strip);
+      out.requests = st.requests.filter(function (q) { return q.status === 'open' || q.status === 'taken' || q.status === 'submitted'; }).map(strip);
+    }
+    return out;
+  }
+
+  return { apply: apply, view: view, balance: balance, waitingWithdraw: waitingWithdraw, toInt: toInt, cleanText: cleanText, MAX_YEN: MAX_YEN, NAME_MAX: NAME_MAX, CHORE_MAX: CHORE_MAX };
+})();
+/* ==== CORE:END ==== */
+</script>
+<script>
+/* ===== 設定 ===== */
+// GAS をデプロイしたら、/exec で終わるURLをここに入れる
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbyN9TpJGYl2QMbAzfYyec_23SRE9a10a-zGY38oS98gsRCD1h7sCFsjOBAWWZtWx4Xc/exec';
+
+/* ===== 動き方を決める =====
+ * live … 合言葉（?k=）つきで開いた本番。データは GAS（ママのスプレッドシート）
+ * demo … 試作。ダミーのデータで、上の帯で3つの画面を切り替える（?demo か、手元で開いたとき）
+ * nokey … 合言葉なしで公開URLを開いたとき */
+const Q = new URLSearchParams(location.search);
+const LOCAL = /^(data|file):$/.test(location.protocol) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const LSKEY = 'otetsudai.k';
+let KEY = Q.get('k') || '';
+try{ if(!KEY && !LOCAL && !Q.has('demo')) KEY = localStorage.getItem(LSKEY) || ''; }catch(e){}
+const MODE = KEY && GAS_URL ? 'live' : (Q.has('demo') || LOCAL ? 'demo' : 'nokey');
+if(MODE==='demo') document.title += '（試作）';
+// 合言葉は、GAS が「正しい」と返してから覚える。ママの合言葉は覚えない（子どものスマホで一度開いても残らないように）
+function remember(st){
+  try{
+    if(st.role==='mama'){ if(localStorage.getItem(LSKEY)===KEY) localStorage.removeItem(LSKEY); }
+    else localStorage.setItem(LSKEY,KEY);
+  }catch(e){}
+}
+function forget(){ try{ if(localStorage.getItem(LSKEY)===KEY) localStorage.removeItem(LSKEY); }catch(e){} }
+
+const KIDS = {
+  k1:{get name(){return S.names.k1}, c:'#2557b5', dk:'#173a7d'},
+  k2:{get name(){return S.names.k2}, c:'#1c7a4f', dk:'#0f4f32'}
+};
+function at(dayAgo,h,m){const d=new Date();d.setDate(d.getDate()-dayAgo);d.setHours(h,m,0,0);return d.getTime()}
+function seed(){
+  return {
+    seq:100,
+    names:{k1:'上の子',k2:'下の子'},   // 本番の名前はママのスプレッドシートにある（公開するコードには書かない）
+    chores:[
+      {id:'c1',name:'しょっき あらい',yen:30},
+      {id:'c2',name:'せんたくものを たたむ',yen:50},
+      {id:'c3',name:'おふろ そうじ',yen:40},
+      {id:'c4',name:'ゴミだし',yen:20},
+      {id:'c5',name:'くつを そろえる',yen:10},
+      {id:'c6',name:'へやの そうじき',yen:50}
+    ],
+    records:[
+      {id:'a01',kid:'k1',type:'chore',name:'しょっき あらい',yen:30,tip:0,status:'approved',at:at(34,19,0)},
+      {id:'a02',kid:'k1',type:'chore',name:'おふろ そうじ',yen:40,tip:10,status:'approved',at:at(30,19,30)},
+      {id:'a03',kid:'k1',type:'chore',name:'ゴミだし',yen:20,tip:0,status:'approved',at:at(27,7,40)},
+      {id:'a04',kid:'k1',type:'withdraw',yen:50,status:'approved',at:at(24,16,0)},
+      {id:'b01',kid:'k2',type:'chore',name:'くつを そろえる',yen:10,tip:0,status:'approved',at:at(33,18,0)},
+      {id:'b02',kid:'k2',type:'chore',name:'せんたくものを たたむ',yen:50,tip:0,status:'approved',at:at(29,18,30)},
+      {id:'b03',kid:'k2',type:'withdraw',yen:40,status:'approved',at:at(25,15,0)},
+      {id:'a1',kid:'k1',type:'chore',name:'へやの そうじき',yen:50,tip:0,status:'approved',at:at(4,17,0)},
+      {id:'a2',kid:'k1',type:'chore',name:'ゴミだし',yen:20,tip:0,status:'approved',at:at(3,7,40)},
+      {id:'a3',kid:'k1',type:'chore',name:'おふろ そうじ',yen:40,tip:0,status:'approved',at:at(2,19,10),req:true},
+      {id:'a4',kid:'k1',type:'chore',name:'せんたくものを たたむ',yen:50,tip:20,status:'approved',at:at(1,18,30)},
+      {id:'a5',kid:'k1',type:'chore',name:'しょっき あらい',yen:30,tip:0,status:'pending',at:at(0,13,10)},
+      {id:'b1',kid:'k2',type:'chore',name:'くつを そろえる',yen:10,tip:0,status:'approved',at:at(4,18,0)},
+      {id:'b2',kid:'k2',type:'chore',name:'しょっき あらい',yen:30,tip:10,status:'approved',at:at(2,19,30)},
+      {id:'b3',kid:'k2',type:'chore',name:'ゴミだし',yen:20,tip:0,status:'approved',at:at(1,7,45)},
+      {id:'b4',kid:'k2',type:'withdraw',yen:30,status:'approved',at:at(1,16,0)},
+      {id:'b5',kid:'k2',type:'chore',name:'くつを そろえる',yen:10,tip:0,status:'pending',at:at(0,12,50)},
+      {id:'b6',kid:'k2',type:'withdraw',yen:20,status:'pending',at:at(0,13,30)}
+    ],
+    requests:[
+      {id:'q1',name:'おふろ そうじ',yen:40,mode:'hayai',to:'',status:'open',at:at(0,11,0)},
+      {id:'q2',name:'せんたくものを たたむ',yen:50,mode:'shimei',to:'k2',status:'open',at:at(0,11,5)}
+    ]
+  };
+}
+let S = MODE==='demo' ? seed() : null;
+const newId = () => 'x' + (++S.seq);
+const TIP = {};        // 打ちかけのチップ（記録のIDごと）。描き直しや読み込み直しでも消えない
+const NAMEDRAFT = {};  // 打ちかけの子どもの名前
+const $ = s => document.querySelector(s);
+const yen = n => Number(n).toLocaleString('ja-JP');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toNum = CORE.toInt;
+const HANKO = '<span class="hanko" aria-label="ママのハンコ">ママ</span>';
+function when(ts, kid){
+  const d=new Date(ts), now=new Date();
+  const hm=d.getHours()+':'+String(d.getMinutes()).padStart(2,'0');
+  const y=new Date(now); y.setDate(now.getDate()-1);
+  if(d.toDateString()===now.toDateString()) return (kid?'きょう ':'今日 ')+hm;
+  if(d.toDateString()===y.toDateString()) return (kid?'きのう ':'昨日 ')+hm;
+  return (d.getMonth()+1)+'/'+d.getDate();
+}
+const md = ts => {const d=new Date(ts);return (d.getMonth()+1)+'/'+d.getDate()};
+const doneAt = r => r.doneAt || r.at;
+const balance = kid => CORE.balance(S,kid);
+const waitingWithdraw = kid => CORE.waitingWithdraw(S,kid);
+const chores = () => S.chores.filter(c=>!c.deleted);
+const kv = kid => `--kc:${KIDS[kid].c};--kdk:${KIDS[kid].dk}`;
+// いま見ている画面。本番は合言葉で決まる。試作は上の帯で切り替える（# には頼らない）
+const okView = v => KIDS[v]||v==='mama';
+let CUR = okView(location.hash.slice(1)) ? location.hash.slice(1) : 'k1';
+function view(){return CUR}
+function go(v){
+  if(MODE!=='demo'||!okView(v)) return;
+  CUR=v; closeSheet();
+  try{history.replaceState(null,'',location.pathname+location.search+'#'+v)}catch(e){}
+  render(); scrollTo(0,0);
+}
+
+/* ===== データのやりとり ===== */
+function api(a,p){
+  if(MODE==='demo'){
+    try{ CORE.apply(S, view(), a, p||{}, Date.now(), newId); }
+    catch(e){ if(e&&e.code) return Promise.resolve({ok:false,err:e.code,extra:e.extra}); return Promise.reject(e); }
+    [S.chores,S.records,S.requests].forEach(l=>l.forEach(o=>{delete o._new;delete o._dirty}));
+    return Promise.resolve({ok:true});
+  }
+  const ctl = new AbortController(), timer = setTimeout(()=>ctl.abort(), 20000);
+  return fetch(GAS_URL,{method:'POST',body:JSON.stringify(Object.assign({},p||{},{k:KEY,a:a})),signal:ctl.signal})
+    .then(r=>r.json()).finally(()=>clearTimeout(timer));
+}
+function errMsg(code, extra){
+  const kid = view()!=='mama';
+  const can = extra && extra.can!=null ? extra.can : null;
+  const M = {
+    taken:['ほかの こが さきに おしたよ','もう他の子が「やる！」を押していました'],
+    gone:['もう かわって いたよ。がめんを みてね','もう変わっていました（取り消された・処理済みなど）'],
+    balance:[can!=null?`ひきだせるのは ${yen(can)}円 までだよ`:'おかねが たりないよ', can!=null?`残高が足りません（いまの残高 ${yen(can)}円）`:'残高が足りません'],
+    input:['すうじで いれてね','数字で入れてください'],
+    same:['','2人に別の名前をつけてください'],
+    perm:['この がめんでは できないよ','この画面ではできません'],
+    busy:['いま こんでいるよ。もういちど おしてね','混み合っています。もう一度押してください'],
+    key:['この URLは つかえないよ','このURLは使えません'],
+  };
+  const m = M[code];
+  return m ? m[kid?0:1] : (kid?'うまく いかなかったよ。もういちど おしてね':'うまくいきませんでした。もう一度押してください');
+}
+let BUSY=false, LOADING=null, PENDING=null;
+const sheetOpen = () => $('#sbg').classList.contains('show');
+const typing = () => { const ae=document.activeElement; return !!(ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName) && $('#app').contains(ae)); };
+// 操作を送って、帰ってきたデータで描き直す。opts.wait はハンコを押す関数（送ると決まってから押す）
+function act(a, p, okMsg, opts){
+  opts = opts||{};
+  const kid = view()!=='mama';
+  if(BUSY){ toast(kid?'まってね。いま おくっているよ':'少し待ってください（送っている途中です）'); return Promise.resolve(false); }
+  BUSY=true;
+  const wait = typeof opts.wait==='function' ? opts.wait() : null;
+  const before = LOADING || Promise.resolve();   // 裏の読み込み中なら、それが終わってから送る（黙って捨てない）
+  const slow = MODE==='live' ? setTimeout(()=>toast(kid?'おくっています…':'送っています…',true),350) : null;
+  return before.then(()=>Promise.all([api(a,p), wait])).then(([res])=>{
+    PENDING=null;
+    if(res && res.state){ if(MODE==='live') remember(res.state); setState(res.state); }
+    if(!res || !res.ok){
+      if(res && res.err==='key'){ KEYBAD=true; forget(); hideToast(); render(); return false; }
+      render(); toast(errMsg(res&&res.err, res&&res.extra)); return false;
+    }
+    render(); if(okMsg) toast(typeof okMsg==='function'?okMsg():okMsg); else if(slow) hideToast();
+    return true;
+  }).catch(()=>{
+    // 返事が届かなくても、GAS では保存できていることがある。すぐ読み込み直して画面を合わせる
+    render();
+    toast(kid?'おくれたか わからないよ。すこし まって がめんを みてね':'送れたか分かりません。少し待って画面を確かめてください');
+    BUSY=false; bgLoad();
+    return false;
+  }).finally(()=>{ BUSY=false; clearTimeout(slow); flushPending(); });
+}
+// 裏の読み込み（45秒ごと・画面に戻ったとき）。押した操作は止めない。入力中・操作中は描き直さずにとっておく
+function bgLoad(){
+  if(MODE!=='live'||KEYBAD) return Promise.resolve(false);
+  if(LOADING) return LOADING;
+  LOADING = api('load',{}).then(res=>{
+    if(res && res.err==='key'){ KEYBAD=true; forget(); render(); return false; }
+    if(!res || !res.ok || !res.state) return false;
+    remember(res.state);
+    if(BUSY || typing() || sheetOpen()){ PENDING=res.state; return true; }
+    setState(res.state); render(); return true;
+  }).catch(()=>false).finally(()=>{ LOADING=null; });
+  return LOADING;
+}
+function flushPending(){
+  if(PENDING && !BUSY && !typing() && !sheetOpen()){ setState(PENDING); PENDING=null; render(); }
+}
+document.addEventListener('focusout',()=>setTimeout(flushPending,0));
+let KEYBAD=false;
+function setState(st){
+  S = st;
+  if(MODE==='live') CUR = st.role;
+}
+
+/* ===== 子どもの画面 ===== */
+function kidHTML(kid){
+  const K=KIDS[kid], bal=balance(kid), ww=waitingWithdraw(kid), can=bal-ww;
+  const reqs=S.requests.filter(q=>
+    (q.status==='open'&&(q.mode==='hayai'||q.to===kid)) || (q.status==='taken'&&q.to===kid));
+  const mine=S.records.filter(r=>r.kid===kid);
+  const waiting=mine.filter(r=>r.status==='pending'||r.status==='redo').sort((a,b)=>b.at-a.at);
+  const book=mine.filter(r=>r.status==='approved'||r.status==='rejected').sort((a,b)=>doneAt(a)-doneAt(b));
+
+  const reqHTML = reqs.map(q=>{
+    let to, btn;
+    if(q.status==='open'&&q.mode==='hayai'){to='ママから ふたりに<br>はやいものがち';btn=`<button class="go" data-act="take" data-id="${esc(q.id)}">やる！</button>`}
+    else if(q.status==='taken'){to='あなたが やることに なったよ';btn=`<button class="go" data-act="reqdone" data-id="${esc(q.id)}">やったよ</button>`}
+    else {to='ママから あなたに';btn=`<button class="go" data-act="reqdone" data-id="${esc(q.id)}">やったよ</button>`}
+    return `<div class="fusen"><div class="tx"><div class="to">${to}</div><div class="nm">${esc(q.name)}</div><div class="yen"><span class="num">${yen(q.yen)}</span>円</div>${q.status==='taken'?`<button class="ut" data-act="untake" data-id="${esc(q.id)}">「やる！」を とりけす</button>`:''}</div>${btn}</div>`;
+  }).join('');
+
+  const choreHTML = chores().map(c=>
+    `<button class="chore" data-act="chore" data-id="${esc(c.id)}"><span class="nm">${esc(c.name)}</span><span class="yen num">${yen(c.yen)}<small>円</small></span><span class="btn">やったよ</span></button>`
+  ).join('') || '<div class="none">まだ ないよ。ママに きいてね</div>';
+
+  const waitHTML = waiting.map(r=>{
+    if(r.type==='withdraw') return `<div class="wrow"><div class="tx"><span class="nm">ひきだし</span><span class="sub">${when(r.at,1)}</span></div><span class="yen num">${yen(r.yen)}円</span><button class="link" data-act="cancel" data-id="${esc(r.id)}">とりけす</button></div>`;
+    if(r.status==='redo') return `<div class="wrow redo"><div class="tx"><span class="nm">${esc(r.name)}</span><span class="sub">ママから「やりなおしてね」</span></div><button class="again" data-act="again" data-id="${esc(r.id)}">もういちど<br>やったよ</button><button class="link" data-act="cancel" data-id="${esc(r.id)}">とりけす</button></div>`;
+    return `<div class="wrow"><div class="tx"><span class="nm">${esc(r.name)}</span><span class="sub">${when(r.at,1)}</span></div><span class="yen num">${yen(r.yen)}円</span><button class="link" data-act="cancel" data-id="${esc(r.id)}">とりけす</button></div>`;
+  }).join('');
+
+  let run=0;
+  const bookRows = book.map((r,i)=>{
+    const last = i===book.length-1 ? ' last' : '';
+    if(r.type==='withdraw'){
+      if(r.status==='rejected') return `<div class="bk off${last}"><span class="d">${md(doneAt(r))}</span><span class="w">ひきだし ${yen(r.yen)}円<span class="tip">やめに なった</span></span><span class="m num">0</span><span class="z num">${yen(run)}</span><span class="s"></span></div>`;
+      run-=r.yen;
+      return `<div class="bk${last}"><span class="d">${md(doneAt(r))}</span><span class="w">ひきだし</span><span class="m num minus">−${yen(r.yen)}</span><span class="z num">${yen(run)}</span><span class="s">${HANKO}</span></div>`;
+    }
+    run+=r.yen+(r.tip||0);
+    const tip = r.tip ? `<span class="tip">${yen(r.yen)}円 ＋ チップ ${yen(r.tip)}円</span>` : '';
+    return `<div class="bk${last}"><span class="d">${md(doneAt(r))}</span><span class="w">${esc(r.name)}${tip}</span><span class="m num">${yen(r.yen+(r.tip||0))}</span><span class="z num">${yen(run)}</span><span class="s">${HANKO}</span></div>`;
+  }).join('');
+
+  return `<div class="kid" style="${kv(kid)}">
+  <div class="cover">
+    <div class="who">${esc(K.name)} の ちょきん</div>
+    <div class="amt num">${yen(bal)}<small>円</small></div>
+    ${ww?`<div class="wait">ひきだし ${yen(ww)}円は ママの OKまち</div>`:''}
+    <button class="wbtn" data-act="withdraw" ${can>0?'':'disabled'}>${can>0?'おかねを ひきだす':'ひきだせる おかねは まだ ないよ'}</button>
+  </div>
+  ${reqs.length?`<div class="blk">${reqHTML}</div>`:''}
+  <div class="blk"><h2>おてつだい</h2><p class="note">やったら 「やったよ」を おしてね</p><div class="list">${choreHTML}</div></div>
+  ${waiting.length?`<div class="blk"><h2>ママの OKまち</h2><p class="note">ママが OKしたら ちょきんに はいるよ</p><div class="list">${waitHTML}</div></div>`:''}
+  <div class="blk"><h2>おかねの きろく</h2><p class="note">ママが OKすると ハンコが つくよ</p>
+    <div class="book"><div class="bk head"><span>ひ</span><span>なに</span><span>おかね</span><span>のこり</span><span>ママ</span></div>${bookRows||'<div class="bk"><span class="d"></span><span class="w">まだ ないよ</span><span></span><span></span><span></span></div>'}</div>
+  </div></div>`;
+}
+
+/* ===== ママの画面 ===== */
+function mamaHTML(){
+  const pend=S.records.filter(r=>r.status==='pending').sort((a,b)=>a.at-b.at);
+  const reqs=S.requests.filter(q=>q.status==='open'||q.status==='taken'||q.status==='submitted').sort((a,b)=>b.at-a.at);
+  const hist=S.records.filter(r=>r.status==='approved'||r.status==='rejected').sort((a,b)=>doneAt(b)-doneAt(a));
+
+  const zan = Object.keys(KIDS).map(k=>`<div class="zr" style="${kv(k)}"><span class="kn">${esc(KIDS[k].name)}</span><span class="num">${yen(balance(k))}<small>円</small></span></div>`).join('');
+
+  const cards = pend.length ? pend.map(r=>{
+    const K=KIDS[r.kid];
+    if(r.type==='withdraw'){
+      const b=balance(r.kid);
+      return `<div class="pend" style="${kv(r.kid)}" data-card="${esc(r.id)}">
+        <div class="ph"><b>${esc(K.name)}</b><span>引き出したい</span><span class="when">${when(r.at)}</span></div>
+        <div class="pw">お金を渡す<span class="num">${yen(r.yen)}円</span></div>
+        <div class="calc">渡すと残高は ${yen(b)}円 → ${yen(b-r.yen)}円</div>
+        <div class="pb"><button class="no" data-act="wno" data-id="${esc(r.id)}">やめる</button><button class="ok" data-act="wok" data-id="${esc(r.id)}">渡した</button></div>
+      </div>`;
+    }
+    return `<div class="pend" style="${kv(r.kid)}" data-card="${esc(r.id)}">
+      <div class="ph"><b>${esc(K.name)}</b><span>やったよ</span><span class="when">${when(r.at)}</span></div>
+      <div class="pw">${esc(r.name)}<span class="num">${yen(r.yen)}円</span>${r.req?'<span class="from">お願いした分</span>':''}</div>
+      <div class="tiprow"><label for="tip-${esc(r.id)}">チップ</label><input id="tip-${esc(r.id)}" class="tipin" data-id="${esc(r.id)}" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="${esc(TIP[r.id]||'')}">円 <small>なしなら空のまま</small></div>
+      <div class="pb"><button class="no" data-act="redo" data-id="${esc(r.id)}">やり直し</button>${okBtn(r)}</div>
+    </div>`;
+  }).join('') : `<div class="none">OK待ちはありません</div>`;
+
+  const reqHTML = reqs.length ? reqs.map(q=>{
+    let st;
+    const qr=S.records.find(r=>r.qid===q.id&&(r.status==='pending'||r.status==='redo'));
+    const tag = k => KIDS[k] ? `<span class="ktag" style="${kv(k)}">${esc(KIDS[k].name)}</span>` : '';
+    if(q.status==='submitted'&&qr&&qr.status==='redo') st=`${tag(q.to)}にやり直しを頼んでいる`;
+    else if(q.status==='submitted') st=`${tag(q.to)}やったよ。上のOK待ちにあります`;
+    else if(q.status==='taken') st=`${tag(q.to)}が「やる！」を押した`;
+    else if(q.mode==='hayai') st='2人に出した（早い者勝ち）。まだ誰も押していない';
+    else st=`${tag(q.to)}に頼んだ。まだやっていない`;
+    const x = q.status==='submitted' ? '' : `<button class="link" data-act="reqcancel" data-id="${esc(q.id)}">取り消す</button>`;
+    return `<div class="wrow"><div class="tx"><span class="nm">${esc(q.name)} ${yen(q.yen)}円</span><span class="sub">${st}</span></div>${x}</div>`;
+  }).join('') : '';
+
+  const edit = chores().map(c=>`<div class="erow">
+      <input class="en" data-cid="${esc(c.id)}" data-f="name" value="${esc(c.name)}" maxlength="${CORE.CHORE_MAX}" aria-label="お手伝いの名前">
+      <input class="ey" data-cid="${esc(c.id)}" data-f="yen" value="${c.yen}" inputmode="numeric" pattern="[0-9]*" aria-label="金額"><span class="yl">円</span>
+      <button class="xbtn" data-act="cdel" data-id="${esc(c.id)}">消す</button></div>`).join('');
+
+  const histHTML = hist.length ? hist.slice(0,30).map(r=>{
+    const tag=`<span class="ktag" style="${kv(r.kid)}">${esc(KIDS[r.kid].name)}</span>`;
+    if(r.type==='withdraw'){
+      if(r.status==='rejected') return `<div class="hrow"><div class="tx">${tag}引き出し ${yen(r.yen)}円<span class="sub">${when(doneAt(r))}</span></div><span class="off">やめた</span></div>`;
+      return `<div class="hrow"><div class="tx">${tag}引き出し<span class="sub">${when(doneAt(r))}</span></div><span class="m num minus">−${yen(r.yen)}円</span></div>`;
+    }
+    const tip=r.tip?`（チップ ${yen(r.tip)}円込み）`:'';
+    return `<div class="hrow"><div class="tx">${tag}${esc(r.name)}<span class="sub">${when(doneAt(r))}${tip}</span></div><span class="m num">＋${yen(r.yen+(r.tip||0))}円</span></div>`;
+  }).join('') : `<div class="none">まだありません</div>`;
+
+  // スマホで開くURL（本番だけ）
+  const urow = (k,n,note) => {
+    const u=S.appUrl+'?k='+encodeURIComponent(S.keys[k]||'');
+    return `<div class="urow"${KIDS[k]?` style="${kv(k)}"`:''}><b>${esc(n)}の画面</b>${note?`<p class="note">${note}</p>`:''}
+      <button class="qrbtn" data-act="qr" data-k="${k}">${QRSHOW===k?'QRをしまう':'QRを出す'}</button>
+      ${QRSHOW===k?`<div class="qr" data-qr="${esc(u)}"></div>`:''}
+      <div class="ucopy"><input readonly value="${esc(u)}" aria-label="${esc(n)}のURL"><button data-act="copy" data-url="${esc(u)}">コピー</button></div></div>`;
+  };
+  const urlHTML = S.keys && S.appUrl ? `<details id="dUrl"><summary>スマホで開くURL</summary><div class="in">
+    <p class="note">その子のQRを出して、その子のスマホのカメラで読むと、その子の画面が開きます。開いたら「ホーム画面に追加」してください（iPhone：下の共有ボタン → ホーム画面に追加／Android：右上の︙ → ホーム画面に追加）。QRが読めないときは、URLをコピーして<b>その子だけ</b>に送ってください。このURLを知っている人はその画面を開けるので、ほかの人には見せないでください。</p>
+    ${urow('k1',KIDS.k1.name)}${urow('k2',KIDS.k2.name)}
+    ${urow('mama','ママ','ママのスマホで開くときだけ使います。子どもに見せないでください')}</div></details>` : '';
+
+  return `<div class="mhead"><h1>ママの画面</h1><span class="cnt">OK待ち ${pend.length}件</span></div>
+  <div class="blk"><h2>2人の残高</h2><div class="zan">${zan}</div></div>
+  <div class="blk"><h2>OK待ち</h2><p class="note">チップは好きな金額を入れて足せます</p>${cards}</div>
+  <div class="blk"><h2>ママからのお願い</h2><p class="note">金額はお手伝い一覧のまま</p><button class="ask" data-act="ask">お願いを書く</button>${reqHTML}</div>
+  <div class="blk"><h2>月ごとの集計</h2><p class="note">ママがOKした日・お金を渡した日の月で数えています</p>${monthHTML()}</div>
+  <details id="dEdit"><summary>お手伝いと金額を直す</summary><div class="in">${edit}<button class="addbtn" data-act="cadd">お手伝いを足す</button></div></details>
+  <details id="dHist"><summary>これまでの記録</summary><div class="in">${histHTML}</div></details>
+  <details id="dName"><summary>子どもの名前</summary><div class="in"><p class="note">子どもの画面にも出る呼び名です（${CORE.NAME_MAX}文字まで）</p>${Object.keys(KIDS).map(k=>`<div class="nrow" style="${kv(k)}"><span class="sw"></span><input class="kname" data-kid="${k}" value="${esc(NAMEDRAFT[k]!=null?NAMEDRAFT[k]:KIDS[k].name)}" maxlength="${CORE.NAME_MAX}" aria-label="${k==='k1'?'1人目':'2人目'}の名前"></div>`).join('')}<button class="ask" data-act="names">この名前にする</button></div></details>
+  ${urlHTML}`;
+}
+
+function okBtn(r){
+  const t=toNum(TIP[r.id]);
+  return t.bad ? `<button class="ok" data-act="ok" data-id="${esc(r.id)}" disabled>チップは数字で入力</button>`
+               : `<button class="ok" data-act="ok" data-id="${esc(r.id)}">OK　${yen(r.yen+t.n)}円あげる</button>`;
+}
+
+/* ===== 月ごとの集計（ママの画面） ===== */
+let MONTH=null;   // 見ている月 "2026-10"。null ＝ 今月
+const ym = ts => {const d=new Date(ts);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
+const ymLabel = m => {const [y,mo]=m.split('-');return `${y}年${Number(mo)}月`};
+function monthSum(kid,m){
+  let got=0,tip=0,out=0,end=0;
+  S.records.filter(r=>r.kid===kid&&r.status==='approved').forEach(r=>{
+    const rm=ym(doneAt(r));
+    const v = r.type==='withdraw' ? -r.yen : r.yen+(r.tip||0);
+    if(rm<=m) end+=v;                       // 月末の残高＝その月の終わりまでの合計
+    if(rm===m){ if(r.type==='withdraw') out+=r.yen; else {got+=r.yen+(r.tip||0);tip+=r.tip||0} }
+  });
+  return {got,tip,out,end};
+}
+function monthHTML(){
+  const now=ym(Date.now());
+  const first=S.records.filter(r=>r.status==='approved').map(r=>ym(doneAt(r))).sort()[0]||now;
+  const ms=[]; let [y,mo]=first.split('-').map(Number);
+  for(;;){const k=y+'-'+String(mo).padStart(2,'0'); ms.push(k); if(k>=now) break; if(++mo>12){mo=1;y++}}
+  const m = MONTH && ms.includes(MONTH) ? MONTH : now;
+  const i=ms.indexOf(m), prev=ms[i-1], next=ms[i+1];
+  const rows=Object.keys(KIDS).map(k=>({k,...monthSum(k,m)}));
+  const cell=r=>`<span><b class="num">${yen(r.got)}円</b>${r.tip?`<small>うちチップ ${yen(r.tip)}円</small>`:''}</span>
+    <span><b class="num${r.out?' minus':''}">${r.out?'−':''}${yen(r.out)}円</b></span>
+    <span><b class="num">${yen(r.end)}円</b></span>`;
+  return `<div class="mnav">
+      <button data-act="mprev" ${prev?`data-m="${prev}"`:'disabled'}>前の月</button>
+      <b>${ymLabel(m)}</b>
+      <button data-act="mnext" ${next?`data-m="${next}"`:'disabled'}>次の月</button></div>
+    <div class="sum">
+      <div class="sr head"><span>もらった</span><span>引き出した</span><span>${m===now?'いまの残高':'月末の残高'}</span></div>
+      ${rows.map(r=>`<div class="sr" style="${kv(r.k)}"><span class="kn">${esc(KIDS[r.k].name)}</span>${cell(r)}</div>`).join('')}
+    </div>`;
+}
+
+/* ===== 合言葉がない・読み込めないとき ===== */
+function nokeyHTML(){
+  const mama = '<p class="note">ママへ：スプレッドシートの「配るURL」の表から開き直してください。</p>';
+  if(KEYBAD) return `<div class="nokey"><h1>おてつだい ちょきん</h1><p>この URLは もう つかえないよ。<br>ママに あたらしい URLを もらってね。</p>${mama}</div>`;
+  return `<div class="nokey"><h1>おてつだい ちょきん</h1><p>この ページは、ママから もらった<br>じぶん せんようの URLで ひらいてね。</p>${mama}</div>`;
+}
+let LOADFAIL=false, FAILS=0;
+function waitHTML(){
+  if(LOADFAIL) return `<div class="nokey"><h1>おてつだい ちょきん</h1><p>${FAILS>1?'まだ つながらないよ。':'つながらなかったよ。'}<br>でんぱを たしかめてね。</p><p><button class="ask" data-act="retry">もういちど よみこむ</button></p></div>`;
+  return `<div class="nokey"><p>よみこみちゅう…</p></div>`;
+}
+
+/* ===== 描画 ===== */
+function render(){
+  $('#proto').hidden = MODE!=='demo';
+  if(MODE==='nokey'||KEYBAD){ $('#app').innerHTML=nokeyHTML(); return; }
+  if(!S){ $('#app').innerHTML=waitHTML(); return; }
+  const v=view();
+  const open=[...document.querySelectorAll('#app details[open]')].map(d=>d.id);
+  document.querySelectorAll('#seg [data-v]').forEach(b=>{
+    const K=KIDS[b.dataset.v]; if(K){const n=[...K.name]; b.textContent=n.length>5?n.slice(0,4).join('')+'…':K.name}
+    b.classList.toggle('on',b.dataset.v===v);b.setAttribute('aria-pressed',b.dataset.v===v);
+  });
+  $('#app').innerHTML = v==='mama' ? mamaHTML() : kidHTML(v);
+  open.forEach(id=>{const d=document.getElementById(id); if(d) d.open=true});
+  if($('#dUrl')&&$('#dUrl').open) drawQR();
+}
+let tt;
+function toast(msg,stay){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(tt);if(!stay)tt=setTimeout(hideToast,2400)}
+function hideToast(){$('#toast').classList.remove('show')}
+function openSheet(html,kid){const sh=$('#sheet');sh.className='sheet'+(kid?' kid':'');sh.innerHTML=html;$('#sbg').classList.add('show')}
+function closeSheet(){$('#sbg').classList.remove('show');setTimeout(flushPending,0)}
+$('#sbg').addEventListener('click',e=>{if(e.target.id==='sbg')closeSheet()});
+// ママがOKした瞬間にハンコを押す（押し終わるのを待つための Promise を返す）
+function stamp(id){
+  return new Promise(done=>{
+    const card=document.querySelector(`[data-card="${CSS.escape(id)}"]`);
+    if(!card) return done();
+    card.classList.add('stamped');
+    card.querySelectorAll('button,input').forEach(b=>b.disabled=true);
+    card.insertAdjacentHTML('beforeend','<span class="hanko big">ママ</span>');
+    setTimeout(done, matchMedia('(prefers-reduced-motion: reduce)').matches ? 250 : 650);
+  });
+}
+// QRコード（スマホで開くURL）。開いたときだけ道具を読み込む
+let qrLib=null;
+function drawQR(){
+  if(!document.querySelector('.qr[data-qr]')) return;
+  if(!qrLib) qrLib=new Promise((ok,ng)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';s.integrity='sha512-ZDSPMa/JM1D+7kdg2x3BsruQ6T/JpJo3jWDWkCZsP+5yVyp1KfESqLI+7RqB5k24F7p2cV7i2YHh/890y6P6Sw==';s.crossOrigin='anonymous';s.referrerPolicy='no-referrer';s.onload=ok;s.onerror=ng;document.head.appendChild(s)});
+  qrLib.then(()=>{
+    document.querySelectorAll('.qr[data-qr]').forEach(el=>{
+      if(el.firstChild) return;
+      const q=qrcode(0,'M'); q.addData(el.dataset.qr); q.make();
+      el.innerHTML=q.createSvgTag(4,2);
+    });
+  }).catch(()=>{qrLib=null;document.querySelectorAll('.qr').forEach(el=>el.textContent='QRが出せませんでした。下のURLをコピーして使ってください')});
+}
+let QRSHOW=null;   // いまQRを出している人（1人ずつ）
+
+/* ===== 子どもの動き ===== */
+// 「やったよ」は一覧からでも付箋からでも、かならず確認を1回はさむ（2回たたいても送られない）
+function confirmDone(kid,name,amt,send){
+  openSheet(`<h3>${esc(name)}　${yen(amt)}円</h3><p class="lead">やったら ママに おくってね。ママが OKしたら ちょきんに はいるよ</p>
+    <button class="sbtn main" id="sOk">やったよ！ ママに おくる</button>
+    <button class="sbtn sub" id="sNo">まだ やってない</button>`,kid);
+  $('#sNo').onclick=closeSheet;
+  $('#sOk').onclick=()=>{closeSheet();send()};
+}
+function kidWithdraw(kid){
+  const can=balance(kid)-waitingWithdraw(kid);
+  openSheet(`<h3>おかねを ひきだす</h3><p class="lead">ひきだせるのは <b>${yen(can)}円</b> まで。ママが OKしたら もらえるよ</p>
+    <label class="sl" for="wAmt">いくら ひきだす？</label>
+    <div class="amtrow"><input id="wAmt" inputmode="numeric" pattern="[0-9]*" placeholder="0"><span>円</span><button id="wAll">ぜんぶ</button></div>
+    <p class="err" id="wErr" role="alert"></p>
+    <button class="sbtn main" id="sOk">ママに おくる</button>
+    <button class="sbtn sub" id="sNo">やめる</button>`,kid);
+  $('#sNo').onclick=closeSheet;
+  $('#wAll').onclick=()=>{$('#wAmt').value=can};
+  $('#sOk').onclick=()=>{
+    const t=toNum($('#wAmt').value), n=t.n;
+    if(t.bad){$('#wErr').textContent='すうじで いれてね';return}
+    if(n<=0){$('#wErr').textContent='きんがくを いれてね';return}
+    if(n>can){$('#wErr').textContent=`ひきだせるのは ${yen(can)}円 までだよ`;return}
+    closeSheet(); act('withdraw',{yen:String(n)},'ママに おくったよ');
+  };
+}
+
+/* ===== ママの動き ===== */
+function mamaAsk(){
+  let pick=null, who=null;
+  const draw=()=>{
+    const list=chores().map(c=>`<button class="${pick===c.id?'on':''}" data-c="${esc(c.id)}"><span class="dot"></span>${esc(c.name)}<span class="y num">${yen(c.yen)}円</span></button>`).join('');
+    const ws=[['k1',`${KIDS.k1.name}に頼む`,''],['k2',`${KIDS.k2.name}に頼む`,''],['both','2人に出す（早い者勝ち）','先に「やる！」を押した子のお手伝いになる']]
+      .map(([v,l,s])=>`<button class="${who===v?'on':''}" data-w="${v}"><span class="dot"></span><span>${esc(l)}${s?`<small>${s}</small>`:''}</span></button>`).join('');
+    openSheet(`<h3>お願いを書く</h3><p class="lead">子どもの画面のいちばん上に付箋で出ます</p>
+      <span class="sl">何を頼む？</span><div class="pick" id="pc">${list}</div>
+      <span class="sl">誰に？</span><div class="pick" id="pw">${ws}</div>
+      <button class="sbtn main" id="sOk" ${pick&&who?'':'disabled'}>${pick&&who?'送る':'何を・誰にを選ぶと送れます'}</button>
+      <button class="sbtn sub" id="sNo">やめる</button>`);
+    $('#pc').onclick=e=>{const b=e.target.closest('[data-c]');if(b){pick=b.dataset.c;keep(draw)}};
+    $('#pw').onclick=e=>{const b=e.target.closest('[data-w]');if(b){who=b.dataset.w;keep(draw)}};
+    $('#sNo').onclick=closeSheet;
+    $('#sOk').onclick=()=>{
+      if(!pick||!who) return;
+      const w=who; closeSheet();
+      act('ask',{cid:pick,who:w}, ()=>w==='both'?'2人に送りました':`${KIDS[w].name}に送りました`);
+    };
+  };
+  draw();
+}
+// 選び直してもシートのスクロール位置を保つ
+function keep(fn){const y=$('#sheet').scrollTop;fn();$('#sheet').scrollTop=y}
+
+$('#app').addEventListener('click',e=>{
+  const b=e.target.closest('[data-act]'); if(!b||b.disabled) return;
+  const a=b.dataset.act, id=b.dataset.id, v=view();
+  const rec=S&&S.records.find(r=>r.id===id), q=S&&S.requests.find(x=>x.id===id);
+  switch(a){
+    case 'retry': return init();
+    case 'qr': QRSHOW = QRSHOW===b.dataset.k ? null : b.dataset.k; render(); return;
+    case 'chore':{
+      const c=chores().find(x=>x.id===id); if(!c) return;
+      return confirmDone(v,c.name,c.yen,()=>act('done',{cid:id},'ママに おくったよ'));}
+    case 'withdraw': return kidWithdraw(v);
+    case 'take': return act('take',{qid:id},'あなたの おてつだいに なったよ');
+    case 'untake':
+      if(!q) return render();
+      openSheet(`<h3>${esc(q.name)}の 「やる！」を とりけす？</h3><p class="lead">とりけすと、また ふたりとも 「やる！」を おせるように なるよ</p>
+        <button class="sbtn main" id="sOk">とりけす</button>
+        <button class="sbtn sub" id="sNo">やっぱり やる</button>`,v);
+      $('#sNo').onclick=closeSheet;
+      $('#sOk').onclick=()=>{closeSheet();act('untake',{qid:id},'とりけしたよ。また ふたりとも おせるよ')};
+      return;
+    case 'reqdone':
+      if(!q) return render();
+      return confirmDone(v,q.name,q.yen,()=>act('reqdone',{qid:id},'ママに おくったよ'));
+    case 'again': return act('again',{rid:id},'ママに おくったよ');
+    case 'cancel': return act('cancel',{rid:id},'とりけしたよ');
+    case 'ok':{
+      if(!rec) return render();
+      const t=toNum(TIP[id]);
+      if(t.bad){toast('チップは数字で入れてください');return}
+      const name=KIDS[rec.kid].name, amount=rec.yen+t.n, tip=t.n;
+      return act('ok',{rid:id,tip:String(tip)},`${name}に ${yen(amount)}円あげました${tip?`（チップ${yen(tip)}円込み）`:''}`,{wait:()=>stamp(id)})
+        .then(ok=>{if(ok) delete TIP[id]});}
+    case 'redo':{
+      if(!rec) return render();
+      const name=KIDS[rec.kid].name;
+      return act('redo',{rid:id},`${name}にやり直しを頼みました`).then(ok=>{if(ok){delete TIP[id];render()}});}
+    case 'wok':{
+      if(!rec) return render();
+      const name=KIDS[rec.kid].name, n=rec.yen;
+      return act('wok',{rid:id},`渡しました。${name}の残高から${yen(n)}円引きました`,{wait:()=>stamp(id)});}
+    case 'wno': return act('wno',{rid:id},'引き出しをやめにしました');
+    case 'ask': return mamaAsk();
+    case 'reqcancel': return act('reqcancel',{qid:id},'お願いを取り消しました');
+    case 'cdel': return act('chore_del',{cid:id},'消しました');
+    case 'cadd': return act('chore_add',{name:'新しいお手伝い',yen:'10'},null).then(ok=>{
+      if(!ok) return; const ins=document.querySelectorAll('#dEdit .en'); const last=ins[ins.length-1]; if(last){last.focus();last.select()}});
+    case 'names':{
+      const vs={}; document.querySelectorAll('.kname').forEach(i=>vs[i.dataset.kid]=i.value.trim().slice(0,CORE.NAME_MAX));
+      if(!vs.k1||!vs.k2){toast('名前を入れてください');return}
+      if(vs.k1===vs.k2){toast('2人に別の名前をつけてください');return}
+      return act('names',vs,'名前を変えました').then(ok=>{if(ok){delete NAMEDRAFT.k1;delete NAMEDRAFT.k2;render()}});}
+    case 'mprev': case 'mnext': MONTH=b.dataset.m;render();return;
+    case 'copy':{
+      const u=b.dataset.url;
+      const done=()=>toast('コピーしました');
+      if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(u).then(done,()=>toast('コピーできませんでした。URLを長押ししてコピーしてください'));
+      else{const i=b.previousElementSibling;i.select();try{document.execCommand('copy');done()}catch(err){toast('URLを長押ししてコピーしてください')}}
+      return;}
+  }
+});
+// チップを入れたら OK ボタンの金額も変わる
+$('#app').addEventListener('input',e=>{
+  if(e.target.classList.contains('kname')){ NAMEDRAFT[e.target.dataset.kid]=e.target.value; return; }
+  if(!e.target.classList.contains('tipin')) return;
+  const r=S.records.find(x=>x.id===e.target.dataset.id); if(!r) return;
+  TIP[r.id]=e.target.value;
+  e.target.closest('.pend').querySelector('.ok').outerHTML=okBtn(r);
+});
+// お手伝いと金額の編集（欄から外れたときに送る）
+$('#app').addEventListener('change',e=>{
+  if(e.target.dataset.kid) return;   // 名前は「この名前にする」で決める（打っている途中で描き直さない）
+  const cid=e.target.dataset.cid; if(!cid) return;
+  const c=chores().find(x=>x.id===cid); if(!c) return;
+  if(e.target.dataset.f==='name'){
+    const n=e.target.value.trim(); if(!n||n===c.name){render();return}
+    act('chore_edit',{cid,name:n},'直しました');
+  }else{
+    const t=toNum(e.target.value);
+    if(t.bad||t.empty){toast('金額は数字で入れてください');render();return}
+    if(t.n===c.yen) return;
+    act('chore_edit',{cid,yen:String(t.n)},'直しました');
+  }
+});
+$('#reset').addEventListener('click',()=>{S=seed();MONTH=null;[TIP,NAMEDRAFT].forEach(o=>Object.keys(o).forEach(k=>delete o[k]));closeSheet();render();toast('最初に戻しました')});
+$('#seg').addEventListener('click',e=>{const b=e.target.closest('[data-v]'); if(b) go(b.dataset.v)});
+addEventListener('hashchange',()=>{const v=location.hash.slice(1); if(v!==CUR) go(v)});
+
+/* ===== 本番：ときどき読み込み直す（ほかのスマホでの変化を映す） ===== */
+function refresh(){
+  if(MODE!=='live'||KEYBAD) return;
+  if(!S){ if(LOADFAIL) init(); return; }
+  bgLoad();
+}
+setInterval(()=>{ if(document.visibilityState==='visible') refresh() }, 45000);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') refresh() });
+addEventListener('pageshow',e=>{ if(e.persisted) refresh() });
+
+function init(){
+  LOADFAIL=false; render();
+  if(MODE!=='live') return;
+  const t0=Date.now();
+  api('load',{}).then(res=>{
+    if(res && res.err==='key'){ KEYBAD=true; forget(); return; }
+    if(!res || !res.ok || !res.state) throw new Error('load');
+    remember(res.state); setState(res.state); FAILS=0;
+  }).catch(()=>{ LOADFAIL=true; FAILS++; })
+    .then(()=>setTimeout(render, Math.max(0, 600-(Date.now()-t0))));   // 押したのが分かるよう「よみこみちゅう」を少し見せる
+}
+init();
+</script>
+</body>
+</html>
