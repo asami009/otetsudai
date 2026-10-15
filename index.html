@@ -62,6 +62,27 @@
   .wbtn:active{transform:translateY(3px);border-bottom-width:1px}
   .wbtn:disabled{opacity:.7;transform:none;border-bottom-width:4px}
 
+  /* ===== 子ども：おさいふ（手元のお金）。表紙のすぐ下 ===== */
+  .saifu{padding:14px 20px 16px;border-bottom:1.5px solid var(--ink)}
+  .saifu .top{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+  .saifu .lb{font-size:17px;font-weight:700;color:var(--kc)}
+  .saifu .lb small{display:block;font-size:12px;font-weight:400;color:var(--sub);line-height:1.3}
+  .saifu .amt{margin-left:auto;font-size:32px;line-height:1.1;color:var(--kc)}
+  .saifu .amt small{font-size:17px;margin-left:2px;font-family:"BIZ UDPGothic",sans-serif}
+  .saifu .bt{display:flex;gap:8px}
+  .sfb{flex:1;padding:11px 6px;border-radius:10px;border:2px solid var(--kc);border-bottom-width:4px;color:var(--kc);background:#fff;font-weight:700;font-size:16px}
+  .sfb:active{transform:translateY(2px);border-bottom-width:2px}
+  .sfb small{font-size:12px;font-weight:400;margin-left:2px}
+  /* おさいふの きろく：最後の列は ママのハンコ か 「けす」 */
+  .bk .s .del{width:100%;min-height:44px;padding:0;white-space:nowrap;font-size:12px;color:var(--sub);text-decoration:underline}
+  .bk .w .cat{font-weight:700}
+  /* つかった・もらった を書く */
+  .cats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 18px}
+  .cats button{padding:12px 2px;border:2px solid var(--rule);border-radius:10px;font-weight:700;font-size:15px;background:#fff}
+  .cats button.on{border-color:var(--ink);background:var(--ink);color:#fff}
+  .memo{display:block;width:100%;padding:12px 14px;border:2px solid var(--ink);border-radius:10px;font-size:18px;margin:0 0 6px}
+  .sheet .lead.warn{color:var(--shu);font-weight:700}
+
   .blk{padding:22px 20px 0}
   h2{font-size:17px;margin:0 0 4px;font-weight:700}
   .note{margin:0 0 10px;font-size:14px;color:var(--sub)}
@@ -201,6 +222,22 @@
   .sr.head{background:var(--mist)}
   .sr.head>*{min-height:32px;padding:4px 6px;font-size:12px;color:var(--sub);font-weight:700;align-items:center}
   .sr .minus{color:var(--shu)}
+  /* おさいふ（ママの画面）：のこりと月ごとの使いみち */
+  .blk h3{font-size:15px;margin:18px 0 8px}
+  .sk{border-top:1.5px solid var(--rule);padding:12px 0 6px}
+  .sk:last-child{border-bottom:1.5px solid var(--rule)}
+  .sk .skh{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin-bottom:8px}
+  .sk .kn{flex:1;font-weight:700;color:var(--kc);display:flex;align-items:center;gap:8px}
+  .sk .kn::before{content:"";flex:none;width:12px;height:12px;border-radius:2px;background:var(--kc)}
+  .sk .io{font-size:13px;color:var(--sub)}
+  .sk .io b{font-size:15px;color:var(--ink)}
+  .sk .io b.minus{color:var(--shu)}
+  .bar{display:grid;grid-template-columns:78px minmax(0,1fr) 70px;align-items:center;gap:8px;min-height:28px;font-size:14px}
+  .bar .bt{height:12px;background:var(--mist);border-radius:2px;overflow:hidden}
+  .bar .bt i{display:block;height:100%;background:var(--kc)}
+  .bar .num{text-align:right}
+  .sk .hrow:last-child{border-bottom:0}
+  .sk .zero{font-size:14px;color:var(--sub);margin:0 0 6px}
 
   /* 下から出る画面 */
   .sbg{position:fixed;inset:0;background:rgba(31,42,68,.5);z-index:30;display:none;align-items:flex-end;justify-content:center}
@@ -277,12 +314,16 @@
  *             status: pending（OK待ち）/ approved（OK・渡した）/ redo（やり直し）/ rejected（引き出しをやめた）/ cancelled（子どもが取り消した）
  *   requests: [{id, name, yen, mode:'shimei'|'hayai', to, status, at}]
  *             status: open / taken（早い者勝ちで「やる！」が押された）/ submitted（やったよ）/ done / cancelled
+ *   wallet:   [{id, kid, type:'in'|'out', cat, memo, yen, at, deleted}]   おさいふ（手元のお金）。子どもが自分で書く
+ *             in＝もらった（お年玉など）/ out＝つかった。ママが「渡した」引き出しは records から数える（ここには書かない）
  * 書きかえた物には _dirty、新しく足した物には _new の印をつける（GAS はこの印を見てシートに書く）
  */
 var CORE = (function () {
   var MAX_YEN = 100000;          // 1回の金額・チップ・引き出しの上限
   var NAME_MAX = 10;             // 子どもの呼び名
   var CHORE_MAX = 20;            // お手伝いの名前
+  var MEMO_MAX = 20;             // おさいふの「ひとこと」
+  var CATS = ['おかし', 'おもちゃ', 'ほん', 'あそび', 'プレゼント', 'そのほか'];   // つかった ときの使いみち
   var KIDS = ['k1', 'k2'];
 
   // 全角の数字も読む。数字以外がまざっていたら bad
@@ -306,6 +347,29 @@ var CORE = (function () {
   function waitingWithdraw(st, kid) {
     return st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'pending'; })
       .reduce(function (s, r) { return s + r.yen; }, 0);
+  }
+  // おさいふの のこり＝ママが渡した引き出し＋もらった−つかった
+  function walletBalance(st, kid) {
+    var got = st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'approved'; })
+      .reduce(function (s, r) { return s + r.yen; }, 0);
+    return (st.wallet || []).filter(function (w) { return w.kid === kid && !w.deleted; })
+      .reduce(function (s, w) { return s + (w.type === 'out' ? -w.yen : w.yen); }, got);
+  }
+  // おさいふの きろくを古い順に足したときの、途中の いちばん少ない のこり（0より上なら0）。skip のIDの1件は数えない
+  // 前の日の「もらった」を消すと、最後の のこりはプラスでも途中がマイナスになることがあるので、消す前にこれで確かめる
+  function walletLowest(st, kid, skip) {
+    var rows = st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'approved'; })
+      .map(function (r) { return { at: r.doneAt || r.at, v: r.yen }; })
+      .concat((st.wallet || []).filter(function (w) { return w.kid === kid && !w.deleted && w.id !== skip; })
+        .map(function (w) { return { at: w.at, v: w.type === 'out' ? -w.yen : w.yen }; }));
+    rows.sort(function (a, b) { return a.at - b.at; });
+    var run = 0, low = 0;
+    rows.forEach(function (x) { run += x.v; if (run < low) low = run; });
+    return low;
+  }
+  // その「もらった」を消すと、おさいふの きろくの どこかで のこりがマイナスになる（今より悪くなる）か
+  function walletDelBreaks(st, kid, w) {
+    return w.type === 'in' && walletLowest(st, kid, w.id) < walletLowest(st, kid, null);
   }
   function fail(code, extra) {
     var e = new Error(code);
@@ -382,6 +446,24 @@ var CORE = (function () {
           q = req(r.qid);
           if (q && q.status === 'submitted') { q.status = q.mode === 'hayai' ? 'taken' : 'open'; touch(q); }
         }
+        return {};
+      case 'saifu_in':      // おさいふ：もらった（お年玉・おばあちゃんから など）
+      case 'saifu_out':     // おさいふ：つかった（のこりより多くは書けない）
+        kidOnly();
+        t = toInt(p.yen);
+        if (t.bad || t.empty || t.n <= 0 || t.n > MAX_YEN) fail('input');
+        var out = a === 'saifu_out';
+        if (out && CATS.indexOf(String(p.cat)) < 0) fail('input');
+        if (out && t.n > walletBalance(st, role)) fail('saifu', { can: walletBalance(st, role) });
+        if (!st.wallet) st.wallet = [];
+        add(st.wallet, { id: newId(), kid: role, type: out ? 'out' : 'in', cat: out ? String(p.cat) : '', memo: cleanText(p.memo, MEMO_MAX), yen: t.n, at: now, deleted: false });
+        return {};
+      case 'saifu_del':     // おさいふ：書きまちがいを消す（印をつけるだけ）
+        kidOnly();
+        var w = (st.wallet || []).filter(function (x) { return x.id === String(p.wid) && x.kid === role && !x.deleted; })[0];
+        if (!w) fail('gone');
+        if (walletDelBreaks(st, role, w)) fail('saifu_del');   // 消すと きろくの途中で のこりがマイナスになる
+        w.deleted = true; touch(w);
         return {};
 
       /* ----- ママ ----- */
@@ -462,6 +544,7 @@ var CORE = (function () {
     var isKid = KIDS.indexOf(role) >= 0;
     var out = { role: role, names: { k1: st.names.k1, k2: st.names.k2 } };
     out.chores = st.chores.filter(function (c) { return !c.deleted; }).map(strip);
+    out.wallet = (st.wallet || []).filter(function (w) { return !w.deleted && (!isKid || w.kid === role); }).map(strip);
     if (isKid) {
       out.records = st.records.filter(function (r) { return r.kid === role && r.status !== 'cancelled'; }).map(strip);
       out.requests = st.requests.filter(function (q) {
@@ -474,7 +557,8 @@ var CORE = (function () {
     return out;
   }
 
-  return { apply: apply, view: view, balance: balance, waitingWithdraw: waitingWithdraw, toInt: toInt, cleanText: cleanText, MAX_YEN: MAX_YEN, NAME_MAX: NAME_MAX, CHORE_MAX: CHORE_MAX };
+  return { apply: apply, view: view, balance: balance, waitingWithdraw: waitingWithdraw, walletBalance: walletBalance, walletDelBreaks: walletDelBreaks, toInt: toInt, cleanText: cleanText,
+    MAX_YEN: MAX_YEN, NAME_MAX: NAME_MAX, CHORE_MAX: CHORE_MAX, MEMO_MAX: MEMO_MAX, CATS: CATS };
 })();
 /* ==== CORE:END ==== */
 </script>
@@ -543,6 +627,15 @@ function seed(){
     requests:[
       {id:'q1',name:'おふろ そうじ',yen:40,mode:'hayai',to:'',status:'open',at:at(0,11,0)},
       {id:'q2',name:'せんたくものを たたむ',yen:50,mode:'shimei',to:'k2',status:'open',at:at(0,11,5)}
+    ],
+    // おさいふ（子どもが自分で書く）。ママが渡した引き出しは records から数える
+    wallet:[
+      {id:'w1',kid:'k1',type:'in',cat:'',memo:'おばあちゃんから',yen:1000,at:at(20,18,0)},
+      {id:'w2',kid:'k1',type:'out',cat:'おかし',memo:'ガム',yen:120,at:at(18,16,30)},
+      {id:'w3',kid:'k1',type:'out',cat:'ほん',memo:'まんが',yen:480,at:at(10,15,0)},
+      {id:'w4',kid:'k1',type:'out',cat:'あそび',memo:'ガチャ',yen:200,at:at(2,17,10)},
+      {id:'w5',kid:'k1',type:'out',cat:'おかし',memo:'',yen:100,at:at(1,16,20)},
+      {id:'w6',kid:'k2',type:'out',cat:'おかし',memo:'グミ',yen:30,at:at(23,16,0)}
     ]
   };
 }
@@ -568,6 +661,18 @@ const doneAt = r => r.doneAt || r.at;
 const balance = kid => CORE.balance(S,kid);
 const waitingWithdraw = kid => CORE.waitingWithdraw(S,kid);
 const chores = () => S.chores.filter(c=>!c.deleted);
+// おさいふ。GAS がまだ古い（wallet を返さない）あいだは出さない
+const hasSaifu = () => !!(S && Array.isArray(S.wallet));
+const walletBalance = kid => CORE.walletBalance(S,kid);
+// おさいふの きろく（古い順）：ママが渡した引き出し＋自分で書いた もらった・つかった
+function saifuRows(kid){
+  const hiki = S.records.filter(r=>r.kid===kid&&r.type==='withdraw'&&r.status==='approved')
+    .map(r=>({id:r.id,kind:'hiki',yen:r.yen,at:doneAt(r)}));
+  const own = (S.wallet||[]).filter(w=>w.kid===kid&&!w.deleted)
+    .map(w=>({id:w.id,kind:w.type,cat:w.cat,memo:w.memo,yen:w.yen,at:w.at}));
+  return hiki.concat(own).sort((a,b)=>a.at-b.at);
+}
+const sign = e => e.kind==='out' ? -e.yen : e.yen;
 const kv = kid => `--kc:${KIDS[kid].c};--kdk:${KIDS[kid].dk}`;
 // いま見ている画面。本番は合言葉で決まる。試作は上の帯で切り替える（# には頼らない）
 const okView = v => KIDS[v]||v==='mama';
@@ -585,7 +690,7 @@ function api(a,p){
   if(MODE==='demo'){
     try{ CORE.apply(S, view(), a, p||{}, Date.now(), newId); }
     catch(e){ if(e&&e.code) return Promise.resolve({ok:false,err:e.code,extra:e.extra}); return Promise.reject(e); }
-    [S.chores,S.records,S.requests].forEach(l=>l.forEach(o=>{delete o._new;delete o._dirty}));
+    [S.chores,S.records,S.requests,S.wallet||[]].forEach(l=>l.forEach(o=>{delete o._new;delete o._dirty}));
     return Promise.resolve({ok:true});
   }
   const ctl = new AbortController(), timer = setTimeout(()=>ctl.abort(), 20000);
@@ -604,6 +709,8 @@ function errMsg(code, extra){
     perm:['この がめんでは できないよ','この画面ではできません'],
     busy:['いま こんでいるよ。もういちど おしてね','混み合っています。もう一度押してください'],
     key:['この URLは つかえないよ','このURLは使えません'],
+    saifu:[can!=null?`おさいふには ${yen(can)}円 しか ないよ。さきに 「もらった」を かいてね`:'おさいふの おかねが たりないよ','おさいふの残高が足りません'],
+    saifu_del:['けすと おさいふが マイナスに なるよ。さきに 「つかった」を けしてね','消すとおさいふがマイナスになります'],
   };
   const m = M[code];
   return m ? m[kid?0:1] : (kid?'うまく いかなかったよ。もういちど おしてね':'うまくいきませんでした。もう一度押してください');
@@ -700,6 +807,7 @@ function kidHTML(kid){
     return `<div class="bk${last}"><span class="d">${md(doneAt(r))}</span><span class="w">${esc(r.name)}${tip}</span><span class="m num">${yen(r.yen+(r.tip||0))}</span><span class="z num">${yen(run)}</span><span class="s">${HANKO}</span></div>`;
   }).join('');
 
+  const EMPTY = '<div class="bk"><span class="d"></span><span class="w">まだ ないよ</span><span></span><span></span><span></span></div>';
   return `<div class="kid" style="${kv(kid)}">
   <div class="cover">
     <div class="who">${esc(K.name)} の ちょきん</div>
@@ -707,12 +815,37 @@ function kidHTML(kid){
     ${ww?`<div class="wait">ひきだし ${yen(ww)}円は ママの OKまち</div>`:''}
     <button class="wbtn" data-act="withdraw" ${can>0?'':'disabled'}>${can>0?'おかねを ひきだす':'ひきだせる おかねは まだ ないよ'}</button>
   </div>
+  ${hasSaifu()?saifuTopHTML(kid):''}
   ${reqs.length?`<div class="blk">${reqHTML}</div>`:''}
   <div class="blk"><h2>おてつだい</h2><p class="note">やったら 「やったよ」を おしてね</p><div class="list">${choreHTML}</div></div>
   ${waiting.length?`<div class="blk"><h2>ママの OKまち</h2><p class="note">ママが OKしたら ちょきんに はいるよ</p><div class="list">${waitHTML}</div></div>`:''}
-  <div class="blk"><h2>おかねの きろく</h2><p class="note">ママが OKすると ハンコが つくよ</p>
-    <div class="book"><div class="bk head"><span>ひ</span><span>なに</span><span>おかね</span><span>のこり</span><span>ママ</span></div>${bookRows||'<div class="bk"><span class="d"></span><span class="w">まだ ないよ</span><span></span><span></span><span></span></div>'}</div>
-  </div></div>`;
+  <div class="blk"><h2>${hasSaifu()?'ちょきんの きろく':'おかねの きろく'}</h2><p class="note">ママが OKすると ハンコが つくよ</p>
+    <div class="book"><div class="bk head"><span>ひ</span><span>なに</span><span>おかね</span><span>のこり</span><span>ママ</span></div>${bookRows||EMPTY}</div>
+  </div>
+  ${hasSaifu()?`<div class="blk"><h2>おさいふの きろく</h2><p class="note">ひきだした おかねは ママの ハンコつきで はいるよ。かきまちがえたら 「けす」を おしてね</p>
+    <div class="book"><div class="bk head"><span>ひ</span><span>なに</span><span>おかね</span><span>のこり</span><span></span></div>${saifuBookHTML(kid)||EMPTY}</div>
+  </div>`:''}</div>`;
+}
+// おさいふ：表紙のすぐ下（のこり＋つかった／もらった）
+function saifuTopHTML(kid){
+  return `<div class="saifu">
+    <div class="top"><span class="lb">おさいふ<small>てもとに ある おかね</small></span><span class="amt num">${yen(walletBalance(kid))}<small>円</small></span></div>
+    <div class="bt"><button class="sfb" data-act="sout">つかった</button><button class="sfb" data-act="sin">もらった</button></div>
+  </div>`;
+}
+// おさいふの きろく（お小遣い帳）。ママが渡した分はハンコ、自分で書いた分は「けす」
+function saifuBookHTML(kid){
+  const rows=saifuRows(kid); let run=0;
+  return rows.map((e,i)=>{
+    run+=sign(e);
+    const last = i===rows.length-1 ? ' last' : '';
+    const memo = e.memo ? `<span class="tip">${esc(e.memo)}</span>` : '';
+    const what = e.kind==='hiki' ? 'ひきだし<span class="tip">ちょきんから</span>'
+               : `<span class="cat">${e.kind==='in'?'もらった':esc(e.cat)}</span>${memo}`;
+    const m = e.kind==='out' ? `<span class="m num minus">−${yen(e.yen)}</span>` : `<span class="m num">${yen(e.yen)}</span>`;
+    const end = e.kind==='hiki' ? HANKO : `<button class="del" data-act="sdel" data-id="${esc(e.id)}">けす</button>`;
+    return `<div class="bk${last}"><span class="d">${md(e.at)}</span><span class="w">${what}</span>${m}<span class="z num">${yen(run)}</span><span class="s">${end}</span></div>`;
+  }).join('');
 }
 
 /* ===== ママの画面 ===== */
@@ -784,10 +917,11 @@ function mamaHTML(){
     ${urow('mama','ママ','ママのスマホで開くときだけ使います。子どもに見せないでください')}</div></details>` : '';
 
   return `<div class="mhead"><h1>ママの画面</h1><span class="cnt">OK待ち ${pend.length}件</span></div>
-  <div class="blk"><h2>2人の残高</h2><div class="zan">${zan}</div></div>
+  <div class="blk"><h2>2人の残高</h2>${hasSaifu()?'<p class="note">アプリにたまっているお金（ちょきん）</p>':''}<div class="zan">${zan}</div></div>
   <div class="blk"><h2>OK待ち</h2><p class="note">チップは好きな金額を入れて足せます</p>${cards}</div>
   <div class="blk"><h2>ママからのお願い</h2><p class="note">金額はお手伝い一覧のまま</p><button class="ask" data-act="ask">お願いを書く</button>${reqHTML}</div>
   <div class="blk"><h2>月ごとの集計</h2><p class="note">ママがOKした日・お金を渡した日の月で数えています</p>${monthHTML()}</div>
+  ${saifuMamaHTML()}
   <details id="dEdit"><summary>お手伝いと金額を直す</summary><div class="in">${edit}<button class="addbtn" data-act="cadd">お手伝いを足す</button></div></details>
   <details id="dHist"><summary>これまでの記録</summary><div class="in">${histHTML}</div></details>
   <details id="dName"><summary>子どもの名前</summary><div class="in"><p class="note">子どもの画面にも出る呼び名です（${CORE.NAME_MAX}文字まで）</p>${Object.keys(KIDS).map(k=>`<div class="nrow" style="${kv(k)}"><span class="sw"></span><input class="kname" data-kid="${k}" value="${esc(NAMEDRAFT[k]!=null?NAMEDRAFT[k]:KIDS[k].name)}" maxlength="${CORE.NAME_MAX}" aria-label="${k==='k1'?'1人目':'2人目'}の名前"></div>`).join('')}<button class="ask" data-act="names">この名前にする</button></div></details>
@@ -833,6 +967,43 @@ function monthHTML(){
       <div class="sr head"><span>もらった</span><span>引き出した</span><span>${m===now?'いまの残高':'月末の残高'}</span></div>
       ${rows.map(r=>`<div class="sr" style="${kv(r.k)}"><span class="kn">${esc(KIDS[r.k].name)}</span>${cell(r)}</div>`).join('')}
     </div>`;
+}
+
+/* ===== おさいふ（ママの画面・見るだけ） ===== */
+let SMONTH=null;  // 見ている月。null ＝ 今月
+function saifuMamaHTML(){
+  if(!hasSaifu()) return '';
+  const ks=Object.keys(KIDS);
+  const zan = ks.map(k=>`<div class="zr" style="${kv(k)}"><span class="kn">${esc(KIDS[k].name)}</span><span class="num">${yen(walletBalance(k))}<small>円</small></span></div>`).join('');
+  const all = ks.flatMap(k=>saifuRows(k).map(e=>Object.assign({kid:k},e)));
+  const now=ym(Date.now());
+  const first=all.map(e=>ym(e.at)).sort()[0]||now;
+  const ms=[]; let [y,mo]=first.split('-').map(Number);
+  for(;;){const k=y+'-'+String(mo).padStart(2,'0'); ms.push(k); if(k>=now) break; if(++mo>12){mo=1;y++}}
+  const m = SMONTH && ms.includes(SMONTH) ? SMONTH : now;
+  const i=ms.indexOf(m), prev=ms[i-1], next=ms[i+1];
+  const sum = l => l.reduce((s,e)=>s+e.yen,0);
+  const per = ks.map(k=>{
+    const es=all.filter(e=>e.kid===k&&ym(e.at)===m);
+    const outs=es.filter(e=>e.kind==='out');
+    return {k, es, inn:sum(es.filter(e=>e.kind!=='out')), out:sum(outs),
+      cats:CORE.CATS.map(c=>[c,sum(outs.filter(e=>e.cat===c))]).filter(x=>x[1]>0)};
+  });
+  const max=Math.max(0,...per.flatMap(p=>p.cats.map(x=>x[1])));   // 2人とも同じものさしで棒を描く
+  const what = e => e.kind==='hiki' ? '引き出し（ママが渡した）' : e.kind==='in' ? 'もらった' : esc(e.cat);
+  const cards = per.map(p=>`<div class="sk" style="${kv(p.k)}">
+      <div class="skh"><span class="kn">${esc(KIDS[p.k].name)}</span><span class="io">入った <b class="num">${yen(p.inn)}円</b></span><span class="io">使った <b class="num${p.out?' minus':''}">${p.out?'−':''}${yen(p.out)}円</b></span></div>
+      ${p.cats.map(([c,v])=>`<div class="bar"><span>${esc(c)}</span><span class="bt"><i style="width:${Math.max(3,Math.round(v/max*100))}%"></i></span><span class="num">${yen(v)}円</span></div>`).join('')||'<p class="zero">この月に使った記録はありません</p>'}
+      ${p.es.slice().reverse().map(e=>`<div class="hrow"><div class="tx">${what(e)}<span class="sub">${md(e.at)}${e.memo?`「${esc(e.memo)}」`:''}</span></div><span class="m num${e.kind==='out'?' minus':''}">${e.kind==='out'?'−':'＋'}${yen(e.yen)}円</span></div>`).join('')}
+    </div>`).join('');
+  return `<div class="blk"><h2>おさいふ（子どもの手元のお金）</h2><p class="note">子どもが自分で書くお小遣い帳です（ママは見るだけ）。引き出しを「渡した」にすると自動で入ります</p>
+    <div class="zan">${zan}</div>
+    <h3>月ごとの使いみち</h3>
+    <div class="mnav">
+      <button data-act="smonth" ${prev?`data-m="${prev}"`:'disabled'}>前の月</button>
+      <b>${ymLabel(m)}</b>
+      <button data-act="smonth" ${next?`data-m="${next}"`:'disabled'}>次の月</button></div>
+    ${cards}</div>`;
 }
 
 /* ===== 合言葉がない・読み込めないとき ===== */
@@ -922,6 +1093,63 @@ function kidWithdraw(kid){
   };
 }
 
+// おさいふ：つかった（mode 'out'）・もらった（mode 'in'）を書く
+function kidSaifu(kid,mode){
+  const b=walletBalance(kid), out=mode==='out';
+  if(out && b<=0){
+    openSheet(`<h3>つかった おかねを かく</h3><p class="lead warn">いま おさいふは 0円 だよ。もらった おかねが あったら さきに 「もらった」を かいてね</p>
+      <button class="sbtn main" id="sGo">「もらった」を かく</button>
+      <button class="sbtn sub" id="sNo">とじる</button>`,kid);
+    $('#sNo').onclick=closeSheet;
+    $('#sGo').onclick=()=>kidSaifu(kid,'in');
+    return;
+  }
+  let cat=null;
+  openSheet(`<h3>${out?'つかった':'もらった'} おかねを かく</h3>
+    <p class="lead">${out?`おさいふの のこりは <b>${yen(b)}円</b>`:'おとしだま・おばあちゃんから など。ママから ひきだした おかねは かかなくても はいるよ'}</p>
+    ${out?`<span class="sl">なにに つかった？</span><div class="cats" id="sCat">${CORE.CATS.map(c=>`<button type="button" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>`:''}
+    <label class="sl" for="sAmt">いくら？</label>
+    <div class="amtrow"><input id="sAmt" inputmode="numeric" pattern="[0-9]*" placeholder="0"><span>円</span></div>
+    <label class="sl" for="sMemo">${out?'ひとこと':'だれから？'}（かかなくても いいよ）</label>
+    <input class="memo" id="sMemo" maxlength="${CORE.MEMO_MAX}" placeholder="${out?'れい：ガム':'れい：おばあちゃん'}" enterkeyhint="done">
+    <p class="err" id="sErr" role="alert"></p>
+    <button class="sbtn main" id="sOk">かく</button>
+    <button class="sbtn sub" id="sNo">やめる</button>`,kid);
+  if(out) $('#sCat').onclick=e=>{
+    const x=e.target.closest('[data-c]'); if(!x) return;
+    cat=x.dataset.c;
+    $('#sCat').querySelectorAll('button').forEach(o=>{o.classList.toggle('on',o===x);o.setAttribute('aria-pressed',o===x)});
+    $('#sErr').textContent='';
+  };
+  $('#sNo').onclick=closeSheet;
+  $('#sOk').onclick=()=>{
+    const t=toNum($('#sAmt').value), n=t.n, err=m=>{$('#sErr').textContent=m};
+    if(out&&!cat) return err('なにに つかったか えらんでね');
+    if(t.bad) return err('すうじで いれてね');
+    if(n<=0) return err('きんがくを いれてね');
+    if(n>CORE.MAX_YEN) return err('きんがくが おおきすぎるよ');
+    if(out&&n>b) return err(`おさいふには ${yen(b)}円 しか ないよ。もらった おかねが あったら さきに 「もらった」を かいてね`);
+    const memo=$('#sMemo').value;
+    closeSheet();
+    act(out?'saifu_out':'saifu_in',{yen:String(n),cat:cat||'',memo},out?'おさいふの きろくに かいたよ':'おさいふに いれたよ');
+  };
+}
+function kidSaifuDel(kid,id){
+  const e=(S.wallet||[]).find(w=>w.id===id&&w.kid===kid); if(!e) return render();
+  const name=e.type==='in'?'もらった':e.cat;
+  if(CORE.walletDelBreaks(S,kid,e)){   // 消すと きろくの途中で のこりがマイナスになる
+    openSheet(`<h3>${esc(name)} ${yen(e.yen)}円 は いま けせないよ</h3><p class="lead warn">けすと おさいふが マイナスに なるよ。さきに 「つかった」の きろくを けしてね</p>
+      <button class="sbtn sub" id="sNo">とじる</button>`,kid);
+    $('#sNo').onclick=closeSheet;
+    return;
+  }
+  openSheet(`<h3>この きろくを けす？</h3><p class="lead">${md(e.at)}　${esc(name)}${e.memo?`（${esc(e.memo)}）`:''}　<b>${yen(e.yen)}円</b></p>
+    <button class="sbtn main" id="sOk">けす</button>
+    <button class="sbtn sub" id="sNo">けさない</button>`,kid);
+  $('#sNo').onclick=closeSheet;
+  $('#sOk').onclick=()=>{closeSheet();act('saifu_del',{wid:id},'けしたよ')};
+}
+
 /* ===== ママの動き ===== */
 function mamaAsk(){
   let pick=null, who=null;
@@ -959,6 +1187,10 @@ $('#app').addEventListener('click',e=>{
       const c=chores().find(x=>x.id===id); if(!c) return;
       return confirmDone(v,c.name,c.yen,()=>act('done',{cid:id},'ママに おくったよ'));}
     case 'withdraw': return kidWithdraw(v);
+    case 'sout': return kidSaifu(v,'out');
+    case 'sin': return kidSaifu(v,'in');
+    case 'sdel': return kidSaifuDel(v,id);
+    case 'smonth': SMONTH=b.dataset.m;render();return;
     case 'take': return act('take',{qid:id},'あなたの おてつだいに なったよ');
     case 'untake':
       if(!q) return render();
@@ -1031,7 +1263,7 @@ $('#app').addEventListener('change',e=>{
     act('chore_edit',{cid,yen:String(t.n)},'直しました');
   }
 });
-$('#reset').addEventListener('click',()=>{S=seed();MONTH=null;[TIP,NAMEDRAFT].forEach(o=>Object.keys(o).forEach(k=>delete o[k]));closeSheet();render();toast('最初に戻しました')});
+$('#reset').addEventListener('click',()=>{S=seed();MONTH=null;SMONTH=null;[TIP,NAMEDRAFT].forEach(o=>Object.keys(o).forEach(k=>delete o[k]));closeSheet();render();toast('最初に戻しました')});
 $('#seg').addEventListener('click',e=>{const b=e.target.closest('[data-v]'); if(b) go(b.dataset.v)});
 addEventListener('hashchange',()=>{const v=location.hash.slice(1); if(v!==CUR) go(v)});
 

@@ -12,12 +12,16 @@
  *             status: pending（OK待ち）/ approved（OK・渡した）/ redo（やり直し）/ rejected（引き出しをやめた）/ cancelled（子どもが取り消した）
  *   requests: [{id, name, yen, mode:'shimei'|'hayai', to, status, at}]
  *             status: open / taken（早い者勝ちで「やる！」が押された）/ submitted（やったよ）/ done / cancelled
+ *   wallet:   [{id, kid, type:'in'|'out', cat, memo, yen, at, deleted}]   おさいふ（手元のお金）。子どもが自分で書く
+ *             in＝もらった（お年玉など）/ out＝つかった。ママが「渡した」引き出しは records から数える（ここには書かない）
  * 書きかえた物には _dirty、新しく足した物には _new の印をつける（GAS はこの印を見てシートに書く）
  */
 var CORE = (function () {
   var MAX_YEN = 100000;          // 1回の金額・チップ・引き出しの上限
   var NAME_MAX = 10;             // 子どもの呼び名
   var CHORE_MAX = 20;            // お手伝いの名前
+  var MEMO_MAX = 20;             // おさいふの「ひとこと」
+  var CATS = ['おかし', 'おもちゃ', 'ほん', 'あそび', 'プレゼント', 'そのほか'];   // つかった ときの使いみち
   var KIDS = ['k1', 'k2'];
 
   // 全角の数字も読む。数字以外がまざっていたら bad
@@ -41,6 +45,29 @@ var CORE = (function () {
   function waitingWithdraw(st, kid) {
     return st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'pending'; })
       .reduce(function (s, r) { return s + r.yen; }, 0);
+  }
+  // おさいふの のこり＝ママが渡した引き出し＋もらった−つかった
+  function walletBalance(st, kid) {
+    var got = st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'approved'; })
+      .reduce(function (s, r) { return s + r.yen; }, 0);
+    return (st.wallet || []).filter(function (w) { return w.kid === kid && !w.deleted; })
+      .reduce(function (s, w) { return s + (w.type === 'out' ? -w.yen : w.yen); }, got);
+  }
+  // おさいふの きろくを古い順に足したときの、途中の いちばん少ない のこり（0より上なら0）。skip のIDの1件は数えない
+  // 前の日の「もらった」を消すと、最後の のこりはプラスでも途中がマイナスになることがあるので、消す前にこれで確かめる
+  function walletLowest(st, kid, skip) {
+    var rows = st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'approved'; })
+      .map(function (r) { return { at: r.doneAt || r.at, v: r.yen }; })
+      .concat((st.wallet || []).filter(function (w) { return w.kid === kid && !w.deleted && w.id !== skip; })
+        .map(function (w) { return { at: w.at, v: w.type === 'out' ? -w.yen : w.yen }; }));
+    rows.sort(function (a, b) { return a.at - b.at; });
+    var run = 0, low = 0;
+    rows.forEach(function (x) { run += x.v; if (run < low) low = run; });
+    return low;
+  }
+  // その「もらった」を消すと、おさいふの きろくの どこかで のこりがマイナスになる（今より悪くなる）か
+  function walletDelBreaks(st, kid, w) {
+    return w.type === 'in' && walletLowest(st, kid, w.id) < walletLowest(st, kid, null);
   }
   function fail(code, extra) {
     var e = new Error(code);
@@ -117,6 +144,24 @@ var CORE = (function () {
           q = req(r.qid);
           if (q && q.status === 'submitted') { q.status = q.mode === 'hayai' ? 'taken' : 'open'; touch(q); }
         }
+        return {};
+      case 'saifu_in':      // おさいふ：もらった（お年玉・おばあちゃんから など）
+      case 'saifu_out':     // おさいふ：つかった（のこりより多くは書けない）
+        kidOnly();
+        t = toInt(p.yen);
+        if (t.bad || t.empty || t.n <= 0 || t.n > MAX_YEN) fail('input');
+        var out = a === 'saifu_out';
+        if (out && CATS.indexOf(String(p.cat)) < 0) fail('input');
+        if (out && t.n > walletBalance(st, role)) fail('saifu', { can: walletBalance(st, role) });
+        if (!st.wallet) st.wallet = [];
+        add(st.wallet, { id: newId(), kid: role, type: out ? 'out' : 'in', cat: out ? String(p.cat) : '', memo: cleanText(p.memo, MEMO_MAX), yen: t.n, at: now, deleted: false });
+        return {};
+      case 'saifu_del':     // おさいふ：書きまちがいを消す（印をつけるだけ）
+        kidOnly();
+        var w = (st.wallet || []).filter(function (x) { return x.id === String(p.wid) && x.kid === role && !x.deleted; })[0];
+        if (!w) fail('gone');
+        if (walletDelBreaks(st, role, w)) fail('saifu_del');   // 消すと きろくの途中で のこりがマイナスになる
+        w.deleted = true; touch(w);
         return {};
 
       /* ----- ママ ----- */
@@ -197,6 +242,7 @@ var CORE = (function () {
     var isKid = KIDS.indexOf(role) >= 0;
     var out = { role: role, names: { k1: st.names.k1, k2: st.names.k2 } };
     out.chores = st.chores.filter(function (c) { return !c.deleted; }).map(strip);
+    out.wallet = (st.wallet || []).filter(function (w) { return !w.deleted && (!isKid || w.kid === role); }).map(strip);
     if (isKid) {
       out.records = st.records.filter(function (r) { return r.kid === role && r.status !== 'cancelled'; }).map(strip);
       out.requests = st.requests.filter(function (q) {
@@ -209,7 +255,8 @@ var CORE = (function () {
     return out;
   }
 
-  return { apply: apply, view: view, balance: balance, waitingWithdraw: waitingWithdraw, toInt: toInt, cleanText: cleanText, MAX_YEN: MAX_YEN, NAME_MAX: NAME_MAX, CHORE_MAX: CHORE_MAX };
+  return { apply: apply, view: view, balance: balance, waitingWithdraw: waitingWithdraw, walletBalance: walletBalance, walletDelBreaks: walletDelBreaks, toInt: toInt, cleanText: cleanText,
+    MAX_YEN: MAX_YEN, NAME_MAX: NAME_MAX, CHORE_MAX: CHORE_MAX, MEMO_MAX: MEMO_MAX, CATS: CATS };
 })();
 
 /* ===== ここから GAS：スプレッドシートの読み書き ===== */
@@ -225,17 +272,19 @@ var CORE = (function () {
  *        次のユーザーとして実行：自分 ／ アクセスできるユーザー：全員（「Google アカウントを持つ全員」ではない。選び違えるとつながらない）
  *   4. 出てきた /exec で終わるURLをブラウザで開き、{"ok":true,"app":"otetsudai"} と出ればOK。このURLをアプリ（index.html の GAS_URL）に入れる
  * コードを直したときは「デプロイを管理 → 鉛筆 → バージョン：新バージョン → デプロイ」（URLは変わらない。新しいデプロイは作らない）
+ * 表が増えたとき（2026-10 の「おさいふ」など）は、貼り直したあと setup をもう一度実行する（今のデータは消えない）
  */
 var APP_URL = 'https://asami009.github.io/otetsudai/';   // アプリの置き場所
 
-var SH = { settings: '設定', chores: 'お手伝い', records: '記録', requests: 'お願い', urls: '配るURL' };
+var SH = { settings: '設定', chores: 'お手伝い', records: '記録', requests: 'お願い', urls: '配るURL', wallet: 'おさいふ' };
 var COLS = {
   chores: [['id', 'ID'], ['name', 'お手伝い'], ['yen', '金額'], ['deleted', '消した']],
   records: [['id', 'ID'], ['kid', '子ども'], ['type', '種類'], ['name', 'お手伝い'], ['yen', '金額'], ['tip', 'チップ'], ['status', '状態'],
     ['at', '申請した日時'], ['doneAt', '確定した日時'], ['qid', 'お願いID'], ['req', 'お願いから']],
-  requests: [['id', 'ID'], ['name', 'お手伝い'], ['yen', '金額'], ['mode', '頼み方'], ['to', '相手'], ['status', '状態'], ['at', '頼んだ日時']]
+  requests: [['id', 'ID'], ['name', 'お手伝い'], ['yen', '金額'], ['mode', '頼み方'], ['to', '相手'], ['status', '状態'], ['at', '頼んだ日時']],
+  wallet: [['id', 'ID'], ['kid', '子ども'], ['type', '種類'], ['cat', '使いみち'], ['memo', 'ひとこと'], ['yen', '金額'], ['at', '書いた日時'], ['deleted', '消した']]
 };
-var KIND_OF = { id: 'text', name: 'text', kid: 'text', type: 'text', status: 'text', qid: 'text', mode: 'text', to: 'text',
+var KIND_OF = { id: 'text', name: 'text', kid: 'text', type: 'text', status: 'text', qid: 'text', mode: 'text', to: 'text', cat: 'text', memo: 'text',
   yen: 'num', tip: 'num', at: 'time', doneAt: 'time', deleted: 'bool', req: 'bool' };
 var SAMPLE_CHORES = [['しょっき あらい', 30], ['せんたくものを たたむ', 50], ['おふろ そうじ', 40], ['ゴミだし', 20], ['くつを そろえる', 10], ['へやの そうじき', 50]];
 
@@ -337,6 +386,7 @@ function fromCell_(key, v) {
 }
 function readTable_(ss, kind) {
   var sh = ss.getSheetByName(SH[kind]);
+  if (!sh) return [];                       // まだ表が無い（コードを新しくして setup をまだ実行していない）
   var cols = COLS[kind];
   var last = sh.getLastRow();
   if (last < 2) return [];
@@ -351,7 +401,8 @@ function readTable_(ss, kind) {
   return out;
 }
 function writeTable_(ss, kind, list) {
-  var sh = ss.getSheetByName(SH[kind]);
+  if (!list.some(function (o) { return o._new || (o._dirty && o._row); })) return;
+  var sh = table_(ss, kind);
   var cols = COLS[kind];
   var toRow = function (o) { return cols.map(function (c) { return toCell_(c[0], o[c[0]]); }); };
   list.forEach(function (o) {
@@ -367,6 +418,14 @@ function writeTable_(ss, kind, list) {
   }
   sh.getRange(start, 1, adds.length, cols.length).setValues(adds);
 }
+// 表を出す。無ければ見出しと書式つきで作る（setup をし忘れても書ける）
+function table_(ss, kind) {
+  var sh = ss.getSheetByName(SH[kind]);
+  if (sh) return sh;
+  sh = sheet_(ss, SH[kind], COLS[kind].map(function (c) { return c[1]; }));
+  formatRows_(sh, kind, 2, sh.getMaxRows() - 1);
+  return sh;
+}
 // 文字の列は「書式なしテキスト」、日時の列は日時の形にする
 function formatRows_(sh, kind, row, n) {
   COLS[kind].forEach(function (c, j) {
@@ -380,13 +439,15 @@ function load_(ss, stg) {
     names: { k1: stg.name_k1 || '上の子', k2: stg.name_k2 || '下の子' },
     chores: readTable_(ss, 'chores'),
     records: readTable_(ss, 'records'),
-    requests: readTable_(ss, 'requests')
+    requests: readTable_(ss, 'requests'),
+    wallet: readTable_(ss, 'wallet')
   };
 }
 function save_(ss, st) {
   writeTable_(ss, 'chores', st.chores);
   writeTable_(ss, 'records', st.records);
   writeTable_(ss, 'requests', st.requests);
+  writeTable_(ss, 'wallet', st.wallet || []);
   if (st._namesDirty) {
     writeSetting_(ss, 'name_k1', st.names.k1);
     writeSetting_(ss, 'name_k2', st.names.k2);
@@ -432,7 +493,7 @@ function setup() {
     else st.appendRow([d[0], v, d[2]]);
   });
 
-  ['chores', 'records', 'requests'].forEach(function (kind) {
+  ['chores', 'records', 'requests', 'wallet'].forEach(function (kind) {
     var sh = sheet_(ss, SH[kind], COLS[kind].map(function (c) { return c[1]; }));
     formatRows_(sh, kind, 2, sh.getMaxRows() - 1);
   });
