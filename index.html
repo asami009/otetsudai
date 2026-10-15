@@ -716,14 +716,15 @@ function errMsg(code, extra){
   return m ? m[kid?0:1] : (kid?'うまく いかなかったよ。もういちど おしてね':'うまくいきませんでした。もう一度押してください');
 }
 let BUSY=false, LOADING=null, PENDING=null;
+let LASTERR=null;   // いちばん最後に act が失敗した理由（GAS の err。届かなかったときは 'net'）
 const sheetOpen = () => $('#sbg').classList.contains('show');
 const typing = () => { const ae=document.activeElement; return !!(ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName) && $('#app').contains(ae)); };
 // 操作を送って、帰ってきたデータで描き直す。opts.wait はハンコを押す関数（送ると決まってから押す）
 function act(a, p, okMsg, opts){
   opts = opts||{};
   const kid = view()!=='mama';
-  if(BUSY){ toast(kid?'まってね。いま おくっているよ':'少し待ってください（送っている途中です）'); return Promise.resolve(false); }
-  BUSY=true;
+  if(BUSY){ LASTERR='wait'; toast(kid?'まってね。いま おくっているよ':'少し待ってください（送っている途中です）'); return Promise.resolve(false); }
+  BUSY=true; LASTERR=null;
   const wait = typeof opts.wait==='function' ? opts.wait() : null;
   const before = LOADING || Promise.resolve();   // 裏の読み込み中なら、それが終わってから送る（黙って捨てない）
   const slow = MODE==='live' ? setTimeout(()=>toast(kid?'おくっています…':'送っています…',true),350) : null;
@@ -732,11 +733,12 @@ function act(a, p, okMsg, opts){
     if(res && res.state){ if(MODE==='live') remember(res.state); setState(res.state); }
     if(!res || !res.ok){
       if(res && res.err==='key'){ KEYBAD=true; forget(); hideToast(); render(); return false; }
-      render(); toast(errMsg(res&&res.err, res&&res.extra)); return false;
+      LASTERR=(res&&res.err)||'server'; render(); toast(errMsg(res&&res.err, res&&res.extra)); return false;
     }
     render(); if(okMsg) toast(typeof okMsg==='function'?okMsg():okMsg); else if(slow) hideToast();
     return true;
   }).catch(()=>{
+    LASTERR='net';
     // 返事が届かなくても、GAS では保存できていることがある。すぐ読み込み直して画面を合わせる
     render();
     toast(kid?'おくれたか わからないよ。すこし まって がめんを みてね':'送れたか分かりません。少し待って画面を確かめてください');
@@ -1034,7 +1036,7 @@ function render(){
   if($('#dUrl')&&$('#dUrl').open) drawQR();
 }
 let tt;
-function toast(msg,stay){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(tt);if(!stay)tt=setTimeout(hideToast,2400)}
+function toast(msg,stay,ms){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(tt);if(!stay)tt=setTimeout(hideToast,ms||2400)}
 function hideToast(){$('#toast').classList.remove('show')}
 function openSheet(html,kid){const sh=$('#sheet');sh.className='sheet'+(kid?' kid':'');sh.innerHTML=html;$('#sbg').classList.add('show')}
 function closeSheet(){$('#sbg').classList.remove('show');setTimeout(flushPending,0)}
@@ -1067,6 +1069,27 @@ let QRSHOW=null;   // いまQRを出している人（1人ずつ）
 
 /* ===== 子どもの動き ===== */
 // 「やったよ」は一覧からでも付箋からでも、かならず確認を1回はさむ（2回たたいても送られない）
+// その子の付箋のうち、同じお手伝いの物（自分が「やる！」した物 → 自分あて → 早い者勝ち の順。同じなら古い物から）
+function reqFor(kid,name){
+  const rank=q=>q.status==='taken'?0:q.mode==='shimei'?1:2;
+  return S.requests.filter(q=>q.name===name &&
+      ((q.status==='open'&&(q.mode==='hayai'||q.to===kid)) || (q.status==='taken'&&q.to===kid)))
+    .sort((a,b)=>rank(a)-rank(b)||a.at-b.at)[0]||null;
+}
+// 付箋の分として送る。早い者勝ちで まだ誰も押していなければ、先に「やる！」をしてから送る
+function sendReq(kid,q){
+  const send = q.status==='open'&&q.mode==='hayai'
+    ? act('take',{qid:q.id},null).then(ok=>ok&&act('reqdone',{qid:q.id},'ママに おくったよ'))
+    : act('reqdone',{qid:q.id},'ママに おくったよ');
+  return send.then(ok=>{
+    if(ok) return true;
+    // 付箋がもう押せなければ、自分の分は まだ届いていないことを はっきり言う（押し直せば ふつうの「やったよ」になる）
+    // 理由は GAS の返事で分ける：taken＝ほかの子が取った／gone＝ママが取り消した・もう済んだ。混んでいた・届かなかったときは いつもの言葉のまま
+    if(LASTERR==='taken'||LASTERR==='gone')
+      toast((LASTERR==='taken'?'ほかの こが さきに やることに なったよ。':'この おねがいは もう なくなったよ。')+'もういちど 「やったよ」を おしてね',false,5000);
+    return false;
+  });
+}
 function confirmDone(kid,name,amt,send){
   openSheet(`<h3>${esc(name)}　${yen(amt)}円</h3><p class="lead">やったら ママに おくってね。ママが OKしたら ちょきんに はいるよ</p>
     <button class="sbtn main" id="sOk">やったよ！ ママに おくる</button>
@@ -1185,6 +1208,8 @@ $('#app').addEventListener('click',e=>{
     case 'qr': QRSHOW = QRSHOW===b.dataset.k ? null : b.dataset.k; render(); return;
     case 'chore':{
       const c=chores().find(x=>x.id===id); if(!c) return;
+      const q=reqFor(v,c.name);   // 同じお手伝いの付箋があれば付箋の分として届ける（一覧から押しても付箋が残らないように）
+      if(q) return confirmDone(v,q.name,q.yen,()=>sendReq(v,q));
       return confirmDone(v,c.name,c.yen,()=>act('done',{cid:id},'ママに おくったよ'));}
     case 'withdraw': return kidWithdraw(v);
     case 'sout': return kidSaifu(v,'out');
