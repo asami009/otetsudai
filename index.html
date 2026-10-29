@@ -264,6 +264,7 @@
   .amtrow span{font-size:20px;font-weight:700}
   .amtrow button{flex:none;padding:14px 12px;border-radius:10px;border:2px solid var(--rule);font-weight:700}
   .err{color:var(--shu);font-size:15px;font-weight:700;min-height:24px;margin:0}
+  .scalc{font-size:17px;font-weight:700;color:var(--ink);min-height:24px;margin:4px 0 4px}
 
   .toast{word-break:keep-all;overflow-wrap:anywhere;position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);
     background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-weight:700;font-size:15px;opacity:0;pointer-events:none;
@@ -311,7 +312,8 @@
  *   names:    {k1:'上の子', k2:'下の子'}
  *   chores:   [{id, name, yen, deleted}]
  *   records:  [{id, kid, type:'chore'|'withdraw', name, yen, tip, status, at, doneAt, qid, req}]
- *             status: pending（OK待ち）/ approved（OK・渡した）/ redo（やり直し）/ rejected（引き出しをやめた）/ cancelled（子どもが取り消した）
+ *             前借り＝type:'withdraw'・name:'まえがり'・最初から approved（ママだけが書く。ちょきんがマイナスになってもよい）
+ *             status: pending（OK待ち）/ approved（OK・渡した）/ redo（やり直し）/ rejected（引き出しをやめた）/ cancelled（子どもが取り消した／ママが消した前借り）
  *   requests: [{id, name, yen, mode:'shimei'|'hayai', to, status, at}]
  *             status: open / taken（早い者勝ちで「やる！」が押された）/ submitted（やったよ）/ done / cancelled
  *   wallet:   [{id, kid, type:'in'|'out', cat, memo, yen, at, deleted}]   おさいふ（手元のお金）。子どもが自分で書く
@@ -325,6 +327,7 @@ var CORE = (function () {
   var MEMO_MAX = 20;             // おさいふの「ひとこと」
   var CATS = ['おかし', 'おもちゃ', 'ほん', 'あそび', 'プレゼント', 'そのほか'];   // つかった ときの使いみち
   var KIDS = ['k1', 'k2'];
+  var MAEGARI = 'まえがり';      // 前借りの記録の印（記録の name に入れる）
 
   // 全角の数字も読む。数字以外がまざっていたら bad
   function toInt(v) {
@@ -358,7 +361,7 @@ var CORE = (function () {
   // おさいふの きろくを古い順に足したときの、途中の いちばん少ない のこり（0より上なら0）。skip のIDの1件は数えない
   // 前の日の「もらった」を消すと、最後の のこりはプラスでも途中がマイナスになることがあるので、消す前にこれで確かめる
   function walletLowest(st, kid, skip) {
-    var rows = st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'approved'; })
+    var rows = st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'approved' && r.id !== skip; })
       .map(function (r) { return { at: r.doneAt || r.at, v: r.yen }; })
       .concat((st.wallet || []).filter(function (w) { return w.kid === kid && !w.deleted && w.id !== skip; })
         .map(function (w) { return { at: w.at, v: w.type === 'out' ? -w.yen : w.yen }; }));
@@ -370,6 +373,10 @@ var CORE = (function () {
   // その「もらった」を消すと、おさいふの きろくの どこかで のこりがマイナスになる（今より悪くなる）か
   function walletDelBreaks(st, kid, w) {
     return w.type === 'in' && walletLowest(st, kid, w.id) < walletLowest(st, kid, null);
+  }
+  // その前借りを消すと、おさいふの きろくの どこかで のこりがマイナスになる（今より悪くなる）か
+  function maegariDelBreaks(st, r) {
+    return walletLowest(st, r.kid, r.id) < walletLowest(st, r.kid, null);
   }
   function fail(code, extra) {
     var e = new Error(code);
@@ -495,6 +502,20 @@ var CORE = (function () {
         if (!r || r.type !== 'withdraw' || r.status !== 'pending') fail('gone');
         r.status = 'rejected'; r.doneAt = now; touch(r);
         return {};
+      case 'maegari':       // 前借り：ママが渡したお金を ちょきんから引く（マイナスになってもよい。次のお手伝いのぶんで戻る）
+        mamaOnly();
+        if (KIDS.indexOf(p.kid) < 0) fail('input');
+        t = toInt(p.yen);
+        if (t.bad || t.empty || t.n <= 0 || t.n > MAX_YEN) fail('input');
+        add(st.records, { id: newId(), kid: p.kid, type: 'withdraw', name: MAEGARI, yen: t.n, tip: 0, status: 'approved', at: now, doneAt: now, qid: '', req: false });
+        return {};
+      case 'maegari_del':   // 前借りの書きまちがいを消す（印をつけるだけ）
+        mamaOnly();
+        r = rec(p.rid);
+        if (!r || r.type !== 'withdraw' || r.status !== 'approved' || r.name !== MAEGARI) fail('gone');
+        if (maegariDelBreaks(st, r)) fail('maegari_del');   // 消すと おさいふの きろくの途中で のこりがマイナスになる
+        r.status = 'cancelled'; touch(r);
+        return {};
       case 'ask':           // お願いを書く
         mamaOnly();
         c = chore(p.cid); if (!c) fail('gone');
@@ -557,8 +578,8 @@ var CORE = (function () {
     return out;
   }
 
-  return { apply: apply, view: view, balance: balance, waitingWithdraw: waitingWithdraw, walletBalance: walletBalance, walletDelBreaks: walletDelBreaks, toInt: toInt, cleanText: cleanText,
-    MAX_YEN: MAX_YEN, NAME_MAX: NAME_MAX, CHORE_MAX: CHORE_MAX, MEMO_MAX: MEMO_MAX, CATS: CATS };
+  return { apply: apply, view: view, balance: balance, waitingWithdraw: waitingWithdraw, walletBalance: walletBalance, walletDelBreaks: walletDelBreaks, maegariDelBreaks: maegariDelBreaks, toInt: toInt, cleanText: cleanText,
+    MAX_YEN: MAX_YEN, NAME_MAX: NAME_MAX, CHORE_MAX: CHORE_MAX, MEMO_MAX: MEMO_MAX, CATS: CATS, MAEGARI: MAEGARI };
 })();
 /* ==== CORE:END ==== */
 </script>
@@ -644,7 +665,8 @@ const newId = () => 'x' + (++S.seq);
 const TIP = {};        // 打ちかけのチップ（記録のIDごと）。描き直しや読み込み直しでも消えない
 const NAMEDRAFT = {};  // 打ちかけの子どもの名前
 const $ = s => document.querySelector(s);
-const yen = n => Number(n).toLocaleString('ja-JP');
+const yen = n => (Number(n)<0?'−':'') + Math.abs(Number(n)).toLocaleString('ja-JP');
+const isMae = r => r.type==='withdraw' && r.name===CORE.MAEGARI;   // ママが記録した前借り
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toNum = CORE.toInt;
 const HANKO = '<span class="hanko" aria-label="ママのハンコ">ママ</span>';
@@ -667,7 +689,7 @@ const walletBalance = kid => CORE.walletBalance(S,kid);
 // おさいふの きろく（古い順）：ママが渡した引き出し＋自分で書いた もらった・つかった
 function saifuRows(kid){
   const hiki = S.records.filter(r=>r.kid===kid&&r.type==='withdraw'&&r.status==='approved')
-    .map(r=>({id:r.id,kind:'hiki',yen:r.yen,at:doneAt(r)}));
+    .map(r=>({id:r.id,kind:'hiki',mae:isMae(r),yen:r.yen,at:doneAt(r)}));
   const own = (S.wallet||[]).filter(w=>w.kid===kid&&!w.deleted)
     .map(w=>({id:w.id,kind:w.type,cat:w.cat,memo:w.memo,yen:w.yen,at:w.at}));
   return hiki.concat(own).sort((a,b)=>a.at-b.at);
@@ -711,6 +733,7 @@ function errMsg(code, extra){
     key:['この URLは つかえないよ','このURLは使えません'],
     saifu:[can!=null?`おさいふには ${yen(can)}円 しか ないよ。さきに 「もらった」を かいてね`:'おさいふの おかねが たりないよ','おさいふの残高が足りません'],
     saifu_del:['けすと おさいふが マイナスに なるよ。さきに 「つかった」を けしてね','消すとおさいふがマイナスになります'],
+    maegari_del:['','消すとおさいふの記録の途中でマイナスになるので、消せませんでした'],
   };
   const m = M[code];
   return m ? m[kid?0:1] : (kid?'うまく いかなかったよ。もういちど おしてね':'うまくいきませんでした。もう一度押してください');
@@ -802,7 +825,7 @@ function kidHTML(kid){
     if(r.type==='withdraw'){
       if(r.status==='rejected') return `<div class="bk off${last}"><span class="d">${md(doneAt(r))}</span><span class="w">ひきだし ${yen(r.yen)}円<span class="tip">やめに なった</span></span><span class="m num">0</span><span class="z num">${yen(run)}</span><span class="s"></span></div>`;
       run-=r.yen;
-      return `<div class="bk${last}"><span class="d">${md(doneAt(r))}</span><span class="w">ひきだし</span><span class="m num minus">−${yen(r.yen)}</span><span class="z num">${yen(run)}</span><span class="s">${HANKO}</span></div>`;
+      return `<div class="bk${last}"><span class="d">${md(doneAt(r))}</span><span class="w">${isMae(r)?'まえがり<span class="tip">ママから</span>':'ひきだし'}</span><span class="m num minus">−${yen(r.yen)}</span><span class="z num">${yen(run)}</span><span class="s">${HANKO}</span></div>`;
     }
     run+=r.yen+(r.tip||0);
     const tip = r.tip ? `<span class="tip">${yen(r.yen)}円 ＋ チップ ${yen(r.tip)}円</span>` : '';
@@ -814,6 +837,7 @@ function kidHTML(kid){
   <div class="cover">
     <div class="who">${esc(K.name)} の ちょきん</div>
     <div class="amt num">${yen(bal)}<small>円</small></div>
+    ${bal<0?`<div class="wait">まえがり ちゅう。おてつだいで 0円に もどそう</div>`:''}
     ${ww?`<div class="wait">ひきだし ${yen(ww)}円は ママの OKまち</div>`:''}
     <button class="wbtn" data-act="withdraw" ${can>0?'':'disabled'}>${can>0?'おかねを ひきだす':'ひきだせる おかねは まだ ないよ'}</button>
   </div>
@@ -842,7 +866,7 @@ function saifuBookHTML(kid){
     run+=sign(e);
     const last = i===rows.length-1 ? ' last' : '';
     const memo = e.memo ? `<span class="tip">${esc(e.memo)}</span>` : '';
-    const what = e.kind==='hiki' ? 'ひきだし<span class="tip">ちょきんから</span>'
+    const what = e.kind==='hiki' ? (e.mae ? 'まえがり<span class="tip">ママから</span>' : 'ひきだし<span class="tip">ちょきんから</span>')
                : `<span class="cat">${e.kind==='in'?'もらった':esc(e.cat)}</span>${memo}`;
     const m = e.kind==='out' ? `<span class="m num minus">−${yen(e.yen)}</span>` : `<span class="m num">${yen(e.yen)}</span>`;
     const end = e.kind==='hiki' ? HANKO : `<button class="del" data-act="sdel" data-id="${esc(e.id)}">けす</button>`;
@@ -861,12 +885,12 @@ function mamaHTML(){
   const cards = pend.length ? pend.map(r=>{
     const K=KIDS[r.kid];
     if(r.type==='withdraw'){
-      const b=balance(r.kid);
+      const b=balance(r.kid), short=b<r.yen;   // 前借りのあとは残高が足りないことがある
       return `<div class="pend" style="${kv(r.kid)}" data-card="${esc(r.id)}">
         <div class="ph"><b>${esc(K.name)}</b><span>引き出したい</span><span class="when">${when(r.at)}</span></div>
         <div class="pw">お金を渡す<span class="num">${yen(r.yen)}円</span></div>
-        <div class="calc">渡すと残高は ${yen(b)}円 → ${yen(b-r.yen)}円</div>
-        <div class="pb"><button class="no" data-act="wno" data-id="${esc(r.id)}">やめる</button><button class="ok" data-act="wok" data-id="${esc(r.id)}">渡した</button></div>
+        <div class="calc">${short?`残高が足りないので渡せません（いまの残高 <span style="white-space:nowrap">${yen(b)}円</span>）。「やめる」を押してください`:`渡すと残高は ${yen(b)}円 → ${yen(b-r.yen)}円`}</div>
+        <div class="pb"><button class="no" data-act="wno" data-id="${esc(r.id)}">やめる</button>${short?'':`<button class="ok" data-act="wok" data-id="${esc(r.id)}">渡した</button>`}</div>
       </div>`;
     }
     return `<div class="pend" style="${kv(r.kid)}" data-card="${esc(r.id)}">
@@ -899,6 +923,7 @@ function mamaHTML(){
     const tag=`<span class="ktag" style="${kv(r.kid)}">${esc(KIDS[r.kid].name)}</span>`;
     if(r.type==='withdraw'){
       if(r.status==='rejected') return `<div class="hrow"><div class="tx">${tag}引き出し ${yen(r.yen)}円<span class="sub">${when(doneAt(r))}</span></div><span class="off">やめた</span></div>`;
+      if(isMae(r)) return `<div class="hrow"><div class="tx">${tag}前借り<span class="sub">${when(doneAt(r))}</span></div><span class="m num minus">−${yen(r.yen)}円</span><button class="link" data-act="mdel" data-id="${esc(r.id)}">消す</button></div>`;
       return `<div class="hrow"><div class="tx">${tag}引き出し<span class="sub">${when(doneAt(r))}</span></div><span class="m num minus">−${yen(r.yen)}円</span></div>`;
     }
     const tip=r.tip?`（チップ ${yen(r.tip)}円込み）`:'';
@@ -919,10 +944,11 @@ function mamaHTML(){
     ${urow('mama','ママ','ママのスマホで開くときだけ使います。子どもに見せないでください')}</div></details>` : '';
 
   return `<div class="mhead"><h1>ママの画面</h1><span class="cnt">OK待ち ${pend.length}件</span></div>
-  <div class="blk"><h2>2人の残高</h2>${hasSaifu()?'<p class="note">アプリにたまっているお金（ちょきん）</p>':''}<div class="zan">${zan}</div></div>
+  <div class="blk"><h2>2人の残高</h2>${hasSaifu()?'<p class="note">アプリにたまっているお金（ちょきん）</p>':''}<div class="zan">${zan}</div>
+    <button class="ask" data-act="maegari" style="margin:12px 0 0">前借りを記録する</button></div>
   <div class="blk"><h2>OK待ち</h2><p class="note">チップは好きな金額を入れて足せます</p>${cards}</div>
   <div class="blk"><h2>ママからのお願い</h2><p class="note">金額はお手伝い一覧のまま</p><button class="ask" data-act="ask">お願いを書く</button>${reqHTML}</div>
-  <div class="blk"><h2>月ごとの集計</h2><p class="note">ママがOKした日・お金を渡した日の月で数えています</p>${monthHTML()}</div>
+  <div class="blk"><h2>月ごとの集計</h2><p class="note">ママがOKした日・お金を渡した日の月で数えています（前借りは「引き出した」に入ります）</p>${monthHTML()}</div>
   ${saifuMamaHTML()}
   <details id="dEdit"><summary>お手伝いと金額を直す</summary><div class="in">${edit}<button class="addbtn" data-act="cadd">お手伝いを足す</button></div></details>
   <details id="dHist"><summary>これまでの記録</summary><div class="in">${histHTML}</div></details>
@@ -992,7 +1018,7 @@ function saifuMamaHTML(){
       cats:CORE.CATS.map(c=>[c,sum(outs.filter(e=>e.cat===c))]).filter(x=>x[1]>0)};
   });
   const max=Math.max(0,...per.flatMap(p=>p.cats.map(x=>x[1])));   // 2人とも同じものさしで棒を描く
-  const what = e => e.kind==='hiki' ? '引き出し（ママが渡した）' : e.kind==='in' ? 'もらった' : esc(e.cat);
+  const what = e => e.kind==='hiki' ? (e.mae ? '前借り（ママが渡した）' : '引き出し（ママが渡した）') : e.kind==='in' ? 'もらった' : esc(e.cat);
   const cards = per.map(p=>`<div class="sk" style="${kv(p.k)}">
       <div class="skh"><span class="kn">${esc(KIDS[p.k].name)}</span><span class="io">入った <b class="num">${yen(p.inn)}円</b></span><span class="io">使った <b class="num${p.out?' minus':''}">${p.out?'−':''}${yen(p.out)}円</b></span></div>
       ${p.cats.map(([c,v])=>`<div class="bar"><span>${esc(c)}</span><span class="bt"><i style="width:${Math.max(3,Math.round(v/max*100))}%"></i></span><span class="num">${yen(v)}円</span></div>`).join('')||'<p class="zero">この月に使った記録はありません</p>'}
@@ -1196,6 +1222,53 @@ function mamaAsk(){
   };
   draw();
 }
+// 前借りを記録する：誰に・いくら → ちょきんから引く（マイナスになってもよい）
+function mamaMaegari(){
+  let who=null, amt='';
+  const read=()=>{const t=toNum(amt);return {t, ok:!!who&&!t.bad&&!t.empty&&t.n>0&&t.n<=CORE.MAX_YEN}};
+  const upd=()=>{
+    const {t,ok}=read();
+    $('#mErr').textContent = t.bad ? '数字で入れてください' : t.n>CORE.MAX_YEN ? `1回 ${yen(CORE.MAX_YEN)}円までです` : '';
+    $('#mCalc').textContent = ok ? `${KIDS[who].name}のちょきん ${yen(balance(who))}円 → ${yen(balance(who)-t.n)}円` : '';
+    const b=$('#sOk'); b.disabled=!ok;
+    b.textContent = ok ? `${KIDS[who].name}に ${yen(t.n)}円 前借りを記録` : '誰に・いくらを入れると記録できます';
+  };
+  const draw=()=>{
+    const ws=Object.keys(KIDS).map(k=>`<button class="${who===k?'on':''}" data-w="${k}"><span class="dot"></span>${esc(KIDS[k].name)}<span class="y num">いま ${yen(balance(k))}円</span></button>`).join('');
+    openSheet(`<h3>前借りを記録する</h3><p class="lead">渡したお金を、その子のちょきんから引きます。足りないときはマイナスになって、次のお手伝いのぶんで戻ります</p>
+      <span class="sl">誰に渡した？</span><div class="pick" id="pw">${ws}</div>
+      <label class="sl" for="mAmt">いくら渡した？</label>
+      <div class="amtrow"><input id="mAmt" inputmode="numeric" pattern="[0-9]*" placeholder="0" value="${esc(amt)}"><span>円</span></div>
+      <p class="scalc" id="mCalc"></p>
+      <p class="err" id="mErr" role="alert"></p>
+      <button class="sbtn main" id="sOk" disabled>誰に・いくらを入れると記録できます</button>
+      <button class="sbtn sub" id="sNo">やめる</button>`);
+    $('#pw').onclick=e=>{const b=e.target.closest('[data-w]');if(b){who=b.dataset.w;keep(draw)}};
+    $('#mAmt').oninput=e=>{amt=e.target.value;upd()};
+    $('#sNo').onclick=closeSheet;
+    $('#sOk').onclick=()=>{
+      const {t,ok}=read(); if(!ok) return;
+      const w=who, n=t.n; closeSheet();
+      act('maegari',{kid:w,yen:String(n)},`${KIDS[w].name}に ${yen(n)}円の前借りを記録しました`);
+    };
+    upd();
+  };
+  draw();
+}
+// 前借りの書きまちがいを消す
+function mamaMaegariDel(r){
+  const name=KIDS[r.kid].name, b=balance(r.kid);
+  if(CORE.maegariDelBreaks(S,r)){
+    openSheet(`<h3>${esc(name)}の前借り ${yen(r.yen)}円は いま消せません</h3><p class="lead warn">消すと、おさいふの記録の途中でマイナスになります。このあとに${esc(name)}が書いた「つかった」を先に消してもらうと、消せるようになります。前借りを正しい金額で記録し直したら、${esc(name)}に「つかった」をもう一度書いてもらってください</p>
+      <button class="sbtn sub" id="sNo">閉じる</button>`);
+    $('#sNo').onclick=closeSheet; return;
+  }
+  openSheet(`<h3>${esc(name)}の前借り ${yen(r.yen)}円を消す？</h3><p class="lead">書きまちがえたときに使います。消すと、ちょきんは ${yen(b)}円 → ${yen(b+r.yen)}円 に戻ります</p>
+    <button class="sbtn main" id="sOk">消す</button>
+    <button class="sbtn sub" id="sNo">やめる</button>`);
+  $('#sNo').onclick=closeSheet;
+  $('#sOk').onclick=()=>{closeSheet();act('maegari_del',{rid:r.id},'前借りの記録を消しました')};
+}
 // 選び直してもシートのスクロール位置を保つ
 function keep(fn){const y=$('#sheet').scrollTop;fn();$('#sheet').scrollTop=y}
 
@@ -1247,6 +1320,10 @@ $('#app').addEventListener('click',e=>{
       return act('wok',{rid:id},`渡しました。${name}の残高から${yen(n)}円引きました`,{wait:()=>stamp(id)});}
     case 'wno': return act('wno',{rid:id},'引き出しをやめにしました');
     case 'ask': return mamaAsk();
+    case 'maegari': return mamaMaegari();
+    case 'mdel':{
+      if(!rec) return render();
+      return mamaMaegariDel(rec);}
     case 'reqcancel': return act('reqcancel',{qid:id},'お願いを取り消しました');
     case 'cdel': return act('chore_del',{cid:id},'消しました');
     case 'cadd': return act('chore_add',{name:'新しいお手伝い',yen:'10'},null).then(ok=>{

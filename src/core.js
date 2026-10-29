@@ -7,7 +7,8 @@
  *   names:    {k1:'上の子', k2:'下の子'}
  *   chores:   [{id, name, yen, deleted}]
  *   records:  [{id, kid, type:'chore'|'withdraw', name, yen, tip, status, at, doneAt, qid, req}]
- *             status: pending（OK待ち）/ approved（OK・渡した）/ redo（やり直し）/ rejected（引き出しをやめた）/ cancelled（子どもが取り消した）
+ *             前借り＝type:'withdraw'・name:'まえがり'・最初から approved（ママだけが書く。ちょきんがマイナスになってもよい）
+ *             status: pending（OK待ち）/ approved（OK・渡した）/ redo（やり直し）/ rejected（引き出しをやめた）/ cancelled（子どもが取り消した／ママが消した前借り）
  *   requests: [{id, name, yen, mode:'shimei'|'hayai', to, status, at}]
  *             status: open / taken（早い者勝ちで「やる！」が押された）/ submitted（やったよ）/ done / cancelled
  *   wallet:   [{id, kid, type:'in'|'out', cat, memo, yen, at, deleted}]   おさいふ（手元のお金）。子どもが自分で書く
@@ -21,6 +22,7 @@ var CORE = (function () {
   var MEMO_MAX = 20;             // おさいふの「ひとこと」
   var CATS = ['おかし', 'おもちゃ', 'ほん', 'あそび', 'プレゼント', 'そのほか'];   // つかった ときの使いみち
   var KIDS = ['k1', 'k2'];
+  var MAEGARI = 'まえがり';      // 前借りの記録の印（記録の name に入れる）
 
   // 全角の数字も読む。数字以外がまざっていたら bad
   function toInt(v) {
@@ -54,7 +56,7 @@ var CORE = (function () {
   // おさいふの きろくを古い順に足したときの、途中の いちばん少ない のこり（0より上なら0）。skip のIDの1件は数えない
   // 前の日の「もらった」を消すと、最後の のこりはプラスでも途中がマイナスになることがあるので、消す前にこれで確かめる
   function walletLowest(st, kid, skip) {
-    var rows = st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'approved'; })
+    var rows = st.records.filter(function (r) { return r.kid === kid && r.type === 'withdraw' && r.status === 'approved' && r.id !== skip; })
       .map(function (r) { return { at: r.doneAt || r.at, v: r.yen }; })
       .concat((st.wallet || []).filter(function (w) { return w.kid === kid && !w.deleted && w.id !== skip; })
         .map(function (w) { return { at: w.at, v: w.type === 'out' ? -w.yen : w.yen }; }));
@@ -66,6 +68,10 @@ var CORE = (function () {
   // その「もらった」を消すと、おさいふの きろくの どこかで のこりがマイナスになる（今より悪くなる）か
   function walletDelBreaks(st, kid, w) {
     return w.type === 'in' && walletLowest(st, kid, w.id) < walletLowest(st, kid, null);
+  }
+  // その前借りを消すと、おさいふの きろくの どこかで のこりがマイナスになる（今より悪くなる）か
+  function maegariDelBreaks(st, r) {
+    return walletLowest(st, r.kid, r.id) < walletLowest(st, r.kid, null);
   }
   function fail(code, extra) {
     var e = new Error(code);
@@ -191,6 +197,20 @@ var CORE = (function () {
         if (!r || r.type !== 'withdraw' || r.status !== 'pending') fail('gone');
         r.status = 'rejected'; r.doneAt = now; touch(r);
         return {};
+      case 'maegari':       // 前借り：ママが渡したお金を ちょきんから引く（マイナスになってもよい。次のお手伝いのぶんで戻る）
+        mamaOnly();
+        if (KIDS.indexOf(p.kid) < 0) fail('input');
+        t = toInt(p.yen);
+        if (t.bad || t.empty || t.n <= 0 || t.n > MAX_YEN) fail('input');
+        add(st.records, { id: newId(), kid: p.kid, type: 'withdraw', name: MAEGARI, yen: t.n, tip: 0, status: 'approved', at: now, doneAt: now, qid: '', req: false });
+        return {};
+      case 'maegari_del':   // 前借りの書きまちがいを消す（印をつけるだけ）
+        mamaOnly();
+        r = rec(p.rid);
+        if (!r || r.type !== 'withdraw' || r.status !== 'approved' || r.name !== MAEGARI) fail('gone');
+        if (maegariDelBreaks(st, r)) fail('maegari_del');   // 消すと おさいふの きろくの途中で のこりがマイナスになる
+        r.status = 'cancelled'; touch(r);
+        return {};
       case 'ask':           // お願いを書く
         mamaOnly();
         c = chore(p.cid); if (!c) fail('gone');
@@ -253,6 +273,6 @@ var CORE = (function () {
     return out;
   }
 
-  return { apply: apply, view: view, balance: balance, waitingWithdraw: waitingWithdraw, walletBalance: walletBalance, walletDelBreaks: walletDelBreaks, toInt: toInt, cleanText: cleanText,
-    MAX_YEN: MAX_YEN, NAME_MAX: NAME_MAX, CHORE_MAX: CHORE_MAX, MEMO_MAX: MEMO_MAX, CATS: CATS };
+  return { apply: apply, view: view, balance: balance, waitingWithdraw: waitingWithdraw, walletBalance: walletBalance, walletDelBreaks: walletDelBreaks, maegariDelBreaks: maegariDelBreaks, toInt: toInt, cleanText: cleanText,
+    MAX_YEN: MAX_YEN, NAME_MAX: NAME_MAX, CHORE_MAX: CHORE_MAX, MEMO_MAX: MEMO_MAX, CATS: CATS, MAEGARI: MAEGARI };
 })();
